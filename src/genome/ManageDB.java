@@ -78,7 +78,7 @@ final public class ManageDB {// Util Class
 		// int line_ct_per_spilit = 0;
 		
 		final double minimumQual = 10.0;
-		final double minimumDP = 10.0;
+		final int  minimumDP = 4;
 		ConsensusReader.ConsensusLineInfo lineInfo = new ConsensusReader.ConsensusLineInfo(minimumQual, minimumDP);
 		ConsensusReader consensusReader = new ConsensusReader(filename);
 		

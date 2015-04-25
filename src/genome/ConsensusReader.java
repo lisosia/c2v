@@ -72,8 +72,8 @@ public class ConsensusReader {
 		public int dp;
 		
 		final private double minimumQual;
-		final private double minimumDP;
-		public ConsensusLineInfo(double minimumQual, double minimumDP) {
+		final private int minimumDP;
+		public ConsensusLineInfo(double minimumQual, int minimumDP) {
 			altsComparedToRef = new int[2];
 			this.minimumQual = minimumQual;
 			this.minimumDP = minimumDP;
@@ -121,7 +121,7 @@ public class ConsensusReader {
 		}
 		
 		boolean isReliable() {
-			if( qual > this.minimumQual && dp > this.minimumDP ){
+			if( qual >= this.minimumQual && dp >= this.minimumDP && !this.isIndel){
 				return true;
 			}else{
 				return false;
