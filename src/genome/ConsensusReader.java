@@ -161,7 +161,6 @@ final class FileOpen{
 		if(filename.endsWith(".gz")){
 			return new GZIPInputStream(in);
 		}else if(filename.endsWith(".bz2")){
-			//TODO
 			return new MultiStreamBZip2InputStream(in);
 		}else{
 			return in;

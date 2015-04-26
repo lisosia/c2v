@@ -34,16 +34,6 @@ final public class ManageDB {// Util Class
 	 * And also, too large split_unit causes too-large memory allocation (may cause OutOfMemoryError )
 	 */
 	
-	/**
-	 * 
-	 * @param runID
-	 * @param sampleID
-	 * @param chr
-	 * @param input データ入力用Stream　genome_position に相当する数字が int の最大値を超えるとオーバーフロー
-	 * @throws ClassNotFoundException
-	 * @throws SQLException
-	 * @throws IOException
-	 */
 	public static void store(String runID, String sampleID, int chr, String filename) 
 			throws ClassNotFoundException, SQLException, IOException {
 		if( dbExist(runID) ) {
@@ -69,6 +59,13 @@ final public class ManageDB {// Util Class
 		// TODO primary制約にひっかかってエラーが出たら、それをキャッチしてクライアントに伝える
 		
 		Connection con = getConnection(pid.getRunID());
+		if( checkDataExistance(con, pid.getRunID(), pid.getSampleName() ) ) {
+			System.err.println("Data[ runID:"+pid.getRunID()+",sampleName:"+pid.getSampleName()+"] "
+					+ "already exists. check <" + DATA_DIR + pid.getRunID() + "> .");
+			System.err.println( "" );
+			System.exit(1);
+		}
+
 		int pos_index_forDB = 0;
 		PersonalGenomeDataCompressor cmpBuf = new PersonalGenomeDataCompressor(pid, con, chr, pos_index_forDB);
 		
@@ -84,7 +81,7 @@ final public class ManageDB {// Util Class
 		
 		while( true ) {
 			if( consensusReader.readFilteredLine(lineInfo) == false ){ //読み込みここまで
-				//TODO STORE
+				// final STORE
 				cmpBuf.StoreDB(TABLE_NAME);
 				System.out.println("store finished");
 				break;
@@ -106,8 +103,8 @@ final public class ManageDB {// Util Class
 				cmpBuf.resetBuffer(pos_index_forDB);
 			}
 			
-			// TODO WRITE
 			// line_ct_per_spilit++;
+			// WRITE
 			cmpBuf.writeData(lineInfo.position,
 					lineInfo.altsComparedToRef[0], lineInfo.altsComparedToRef[1]);
 							
@@ -116,22 +113,7 @@ final public class ManageDB {// Util Class
 		con.close();
 		
 	}
-	
-	// 入力が定まっていないので、元から存在するperlスクリプトでの出力を仮定.非常に冗長なフォーマットになっているため
-	// このような関数が必要
-	@Deprecated
-	static String[] parseALT(int[] in) {
-		final String[] ACGT = {"A","C","G","T"};
-		for(int i =0; i<4 ; ++i){
-			if(in[2*i] == 2){ String[] ret = { ACGT[i], ACGT[i]}; return ret;}
-		}
-		String[] ret = new String[2];int dx = 0;
-		for(int i =0; i<4 ; ++i){
-			if(in[2*i+1] == 1){ ret[dx++] = ACGT[i];}
-		}
-		if( dx==2 )return ret;
-		throw new IllegalArgumentException();
-	}
+
 	
 	private static Connection initDB(String runID)
 			throws ClassNotFoundException, SQLException {
@@ -261,9 +243,17 @@ final public class ManageDB {// Util Class
 		return ret;
 	}
 	
-	//TODO データの存在 検査
-	boolean checkDataExistance(String runID, String sampleID) {
-		return true;
+	//TODO これでよいのか
+	/**
+	 * Dataがすでに存在するか確かめる.
+	 */
+	static boolean checkDataExistance(Connection con, String runID, String sampleID) throws SQLException{
+		String sql = "select * from " + TABLE_NAME + " where sample_id = ?";
+		// Connection con = getConnection(runID);
+		PreparedStatement ps = con.prepareStatement(sql);
+		ps.setString(1, sampleID);
+		ResultSet rs = ps.executeQuery();
+		return rs.next();
 	}
 	
 	static void printMergedData(int[] merged, int pos_index ) {
