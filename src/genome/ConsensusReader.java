@@ -90,7 +90,7 @@ public class ConsensusReader {
 			String info = m.group(6);
 			//TODO bam(最後の) なにに使うの???
 			String bam = m.group(7);
-			if(info.contains("INDEL")){ return false; }
+			if(info.contains("INDEL")){ return false; } // INDEL 即リターン. この行を変えるときは, 後ろでバグらないよう注意
 			
 			// set altsComparedToRef
 			if(alts.equals(".") ){
@@ -121,7 +121,7 @@ public class ConsensusReader {
 		}
 		
 		boolean isReliable() {
-			if( qual >= this.minimumQual && dp >= this.minimumDP && !this.isIndel){
+			if( !this.isIndel && qual >= this.minimumQual && dp >= this.minimumDP ){
 				return true;
 			}else{
 				return false;
@@ -135,7 +135,7 @@ public class ConsensusReader {
 
 
 
-class ParseBase {
+final class ParseBase {
 	/**
 	 * @param ref 1文字 [ACGT]
 	 * @param alt 1文字 [ACGT]

@@ -7,6 +7,7 @@ import genome.GenomeDataStoreUtil.PositionArrayDeCompressor;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -50,7 +51,7 @@ final public class ManageDB {// Util Class
 		System.out.println("Store fin, " + (t1-t0)/(1000*1000*1000+0.0) + " sec passed" );
 		
 	}
-	public static boolean dbExist(String runID) {
+	private static boolean dbExist(String runID) {
 		return (new File( DATA_DIR + runID ).exists() );
 	}
 	
@@ -180,11 +181,11 @@ final public class ManageDB {// Util Class
 		}
 		return ret;
 	}
-	public static void printDiffByChr(int chr, Map<String, ArrayList<String>> id) 
+	public static void printDiffByChr(int chr, Map<String, ArrayList<String>> id, PrintStream out) 
 	throws ClassNotFoundException, SQLException, IOException {
 		for(int pos : getExistingPosIndex(chr, id.keySet() ) ) {
 			int[] merged = getMergedData(chr, id, pos);
-			printMergedData(merged, pos);
+			printMergedData(merged, pos, out);
 		}
 	}
 	/**
@@ -229,7 +230,8 @@ final public class ManageDB {// Util Class
 		
 		int[] ret = new int[4*DATA_SPLIT_UNIT];
 		while (rs.next()) {
-			System.err.println("mergeing   sample_id: " + rs.getString("sample_id") );
+			System.err.println(
+					"merging   sample_id:" + rs.getString("sample_id") +" pos_index:"+String.valueOf(pos_index));
 			PersonalGenomeDataDecompressor d = 
 					new PersonalGenomeDataDecompressor(rs.getBytes("pos_array"), rs.getBytes("base_array"));
 			int[] data = new int[3];
@@ -256,12 +258,12 @@ final public class ManageDB {// Util Class
 		return rs.next();
 	}
 	
-	static void printMergedData(int[] merged, int pos_index ) {
+	static void printMergedData(int[] merged, int pos_index, PrintStream out ) {
 		if( merged.length % 4 != 0 ) {throw new IllegalArgumentException("arg<merged> 's format is incorrect"); }
 		for(int i =0 ; i< merged.length /4 ; ++i) {
 			int dx = i * 4;
 			if( merged[dx+1]!=0 || merged[dx+2]!=0 || merged[dx+3]!=0) {
-				System.out.println("pos: "+ (pos_index + i) +", referenceとの'ずれ': "
+				out.println("pos: "+ (pos_index + i) +", referenceとの'ずれ': "
 						+ merged[dx]+" "+merged[dx+1]+" "+merged[dx+2]+" "+merged[dx+3]);
 			}
 		}
