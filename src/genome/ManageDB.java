@@ -185,7 +185,7 @@ final public class ManageDB {// Util Class
 	throws ClassNotFoundException, SQLException, IOException {
 		for(int pos : getExistingPosIndex(chr, id.keySet() ) ) {
 			int[] merged = getMergedData(chr, id, pos);
-			printMergedData(merged, pos, out);
+			new PrintData(chr).printMergedData(merged, pos, out);
 		}
 	}
 	/**
@@ -258,16 +258,7 @@ final public class ManageDB {// Util Class
 		return rs.next();
 	}
 	
-	static void printMergedData(int[] merged, int pos_index, PrintStream out ) {
-		if( merged.length % 4 != 0 ) {throw new IllegalArgumentException("arg<merged> 's format is incorrect"); }
-		for(int i =0 ; i< merged.length /4 ; ++i) {
-			int dx = i * 4;
-			if( merged[dx+1]!=0 || merged[dx+2]!=0 || merged[dx+3]!=0) {
-				out.println("pos: "+ (pos_index + i) +", referenceとの'ずれ': "
-						+ merged[dx]+" "+merged[dx+1]+" "+merged[dx+2]+" "+merged[dx+3]);
-			}
-		}
-	}
+
 	
 	/**
 	 * For debug
@@ -307,4 +298,27 @@ final public class ManageDB {// Util Class
 	}
 	
 	
+}
+
+class PrintData {
+	private int chr;
+	ReferenceReader rr;
+	PrintData(int chr) throws SQLException{
+		this.chr = chr;
+		//TODO WHEN CHR = X/Y
+		rr = new ReferenceReader("chr" + String.valueOf(chr));
+	}
+	void printMergedData(int[] merged, int pos_index, PrintStream out ) throws IOException,SQLException{
+		if( merged.length % 4 != 0 ) {throw new IllegalArgumentException("arg<merged> 's format is incorrect"); }
+		for(int i =0 ; i< merged.length /4 ; ++i) {
+			int dx = i * 4;
+			int absolutePos;
+			if( merged[dx+1]!=0 || merged[dx+2]!=0 || merged[dx+3]!=0) {
+				absolutePos = pos_index + i;
+				out.print( "ref = " +  String.valueOf( rr.read(absolutePos) )  );
+				out.println("pos: "+ (absolutePos) +", referenceとの'ずれ': "
+						+ merged[dx]+" "+merged[dx+1]+" "+merged[dx+2]+" "+merged[dx+3]);
+			}
+		}
+	}
 }

@@ -1,11 +1,11 @@
 package genome;
 
-import java.beans.Statement;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.zip.GZIPInputStream;
@@ -20,23 +20,37 @@ public class ReferenceReader {
 	private int start_pos;
 	private int end_pos;
 	private int last_read_pos;
-	private InputStream refStream;
+	private String seq;
 	public ReferenceReader(String chromosome) throws SQLException {
 		//TODO argument check
-		this.chr = chromosome;
-		sql = "select * from " + "TABLE_NAME" + "where chr = " + chromosome + " order by start asc";
-		
+		this.chr = chromosome; // chr0 ~~ chr22, chrX, chrY, (chrM)
+		sql = "select * from " + "TABLE_NAME" + "where description_id = " + chromosome + " order by start asc";
+/*
+ * FROM UTGB
+ */
+//		String sql = SQLExpression.fillTemplate("select start, end, sequence from " + "(select * from description where description= '$1') as description "
+//				+ "join sequence on sequence.description_id = description.id " + "where start between $2 and $3 " + "and end > $4 order by start",
+//				location.chr, searchStart, end, start);
+
 		con = getREfConnection();
 		java.sql.Statement stmt = con.createStatement();
 		rs = stmt.executeQuery(sql);
 		if( ! rs.next() ){ throw new C2VRuntimeException("get 0 size resultset ");}
 		
 	}
-	private void setParams() {
+	
+	private void setParams() throws IOException, SQLException{
 		this.start_pos = rs.getInt("start");		
 		this.end_pos = rs.getInt("end");
-		//TODO
-		refStream = new GZIPInputStream(new ByteArrayInputStream( rs.getBytes(columnLabel) ));
+		InputStream refStream = new GZIPInputStream(new ByteArrayInputStream( rs.getBytes("sequence") ) );
+		byte[] b = new byte[1024];
+		int byteRead;
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		while ( (byteRead = refStream.read(b) ) != -1 ) {
+			bos.write(b, 0, byteRead);
+		}
+		this.seq = new String( bos.toByteArray() );
+		this.last_read_pos = -1;
 	}
 	
 	/**
@@ -44,10 +58,15 @@ public class ReferenceReader {
 	 * @param posision
 	 * @return [ACGT]に対応する[0123], 現在の refStreamに positionが存在しない時は -1
 	 */
-	private int readFromRefStream(int posision) {
-		
+	private int readFromRef(int posision) throws IOException {
+		if( last_read_pos >= posision ) { throw new IllegalArgumentException(
+				"readFromRefStream should'd called with incremental arg<position>");}
+		if(start_pos > posision || end_pos < posision ){throw new IllegalArgumentException(""
+				+ "start_pos<DB> <= position <= end_pos<DB> was not satisfied");}
+		return this.seq.indexOf(posision - this.start_pos);
 	}
-	public int read(int posision) throws SQLException {
+	
+	public int read(int posision) throws IOException, SQLException {
 		this.last_read_pos = posision;
 		
 		while( posision > this.end_pos ) {
@@ -58,7 +77,7 @@ public class ReferenceReader {
 			setParams();
 		}
 		
-		return readFromRefStream(posision);
+		return readFromRef(posision);
 			
 	}			
 	
@@ -85,23 +104,5 @@ public class ReferenceReader {
 		}
 		return con;
 	}
-	/*
-	public String getFilename(String chr) {
-		if( chr.equals("X") ) {
-			return "  ~~~~~~~~~~~~~~~ ";
-		} else if ( chr.equals("Y") ) {
-			return "                .Y";
-		} else {
-			int num;
-			try {
-				num = Integer.valueOf(chr);
-			}catch( NumberFormatException  e ) {
-				throw new IllegalArgumentException( "引数 chr:[" + chr + "] を解釈できません" );
-			}
-			if( num < 1 || num > 22  ){  
-				throw new IllegalArgumentException("0以下又は22より大きい染色体番号は無効");}
-			return "        ~~~~~~~~~~~~~~~~~~~~    ";
-		}
-	}
-	*/
+
 }
