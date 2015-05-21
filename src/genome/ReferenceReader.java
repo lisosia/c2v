@@ -11,8 +11,8 @@ import java.sql.SQLException;
 import java.util.zip.GZIPInputStream;
 
 public class ReferenceReader {
-	private String chr;
-	private static String filedir = "~~~~~~~~~~~~~~~";
+	private int chr_num;
+
 	private final Connection con;
 	private ResultSet rs;
 	private final String sql;
@@ -21,10 +21,29 @@ public class ReferenceReader {
 	private int end_pos;
 	private int last_read_pos;
 	private String seq;
-	public ReferenceReader(String chromosome) throws SQLException {
+	private final String ReferenceDBPath;
+	/**
+	 * 
+	 * @param chromosome [ 1-22 | X | Y ].
+	 * @throws SQLException
+	 */
+	public ReferenceReader(String chromosome, String referenceDBpath) throws SQLException {
 		//TODO argument check
-		this.chr = chromosome; // chr0 ~~ chr22, chrX, chrY, (chrM)
-		sql = "select * from " + "TABLE_NAME" + "where description_id = " + chromosome + " order by start asc";
+		this.ReferenceDBPath = referenceDBpath;
+		if(chromosome.equals("X")) {this.chr_num = 23; 
+		} else if(chromosome.equals("Y")) {this.chr_num=24;
+		} else {
+			try {
+				this.chr_num = Integer.parseInt(chromosome);				
+			} catch ( NumberFormatException e) {
+				throw new IllegalArgumentException("arg<chromosome> should be [ 1-22 | X | Y ]"
+						 + "chromosome: [" + chromosome + "]");
+			}
+		}
+		
+		final String REF_TABLENAME = "sequence";
+		sql = "select * from " + REF_TABLENAME + "where description_id = " + String.valueOf(this.chr_num)
+				+ " order by start asc";
 /*
  * FROM UTGB
  */
@@ -32,7 +51,7 @@ public class ReferenceReader {
 //				+ "join sequence on sequence.description_id = description.id " + "where start between $2 and $3 " + "and end > $4 order by start",
 //				location.chr, searchStart, end, start);
 
-		con = getREfConnection();
+		con = getRefConnection();
 		java.sql.Statement stmt = con.createStatement();
 		rs = stmt.executeQuery(sql);
 		if( ! rs.next() ){ throw new C2VRuntimeException("get 0 size resultset ");}
@@ -83,15 +102,16 @@ public class ReferenceReader {
 	
 	/**
 	 * 
-	 * @param chr 1~22の文字列表現　または X or Y
+	 * @param chr 1~22の文字列表現　または "X" or "Y"
 	 * @return
 	 */
 	String getRefFilename(String chr) {
-		return "     fjlsahafoihfs iohsei  .sqlite";
-	}
-	static Connection getREfConnection() {
 		//TODO
-		final String dbPath = "     ";
+		return this.ReferenceDBPath;
+	}
+	Connection getRefConnection() {
+		//TODO
+		final String dbPath = this.ReferenceDBPath;// use getRefFilename()
 		Connection con;
 		try {
 			Class.forName("org.sqlite.JDBC");

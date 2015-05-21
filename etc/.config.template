@@ -1,0 +1,4 @@
+to_be_stored_DBfile_dir
+DATAPLIT_UNIT // 100*100k is recommended
+miniumQvalue(FLOAT) //~=10.0
+minimumDP(INT) //~=4

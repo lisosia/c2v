@@ -5,7 +5,10 @@ import genome.GenomeDataStoreUtil.PersonalGenomeDataDecompressor;
 import genome.GenomeDataStoreUtil.PersonalID;
 import genome.GenomeDataStoreUtil.PositionArrayDeCompressor;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.sql.Connection;
@@ -22,11 +25,39 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 
 final public class ManageDB {// Util Class
+
+	final private String DATA_DIR; //  = System.getProperty("user.dir") + "/etc/data/";
+	final private String TABLE_NAME = "base_data";
+	final int DATA_SPLIT_UNIT; // = 100000 * 100; //100k * 100
+	final double minimumQual;
+	final int minimumDP;
+	final String referenceDBPath;
+	public ManageDB() {
+		//Read config file
+		final String CONFIG_FILENAME = System.getProperty("user.dir") + "/.config";
+		BufferedReader br = null; 
+		try{
+			br= new BufferedReader(new FileReader(CONFIG_FILENAME));
+			String data_dir_tmp = br.readLine();
+			DATA_DIR = data_dir_tmp.endsWith("/") ? data_dir_tmp : data_dir_tmp + "/";
+			DATA_SPLIT_UNIT = Integer.parseInt(br.readLine());
+			minimumQual = Double.parseDouble(br.readLine());
+			minimumDP = Integer.parseInt( br.readLine());
+			String refDBPath_tmp = br.readLine(); 
+			this.referenceDBPath = refDBPath_tmp.endsWith("/") ? refDBPath_tmp : refDBPath_tmp + "/";
+		}catch(FileNotFoundException e) {
+			throw new Error("CONFIG_FILE not found at: " + CONFIG_FILENAME);
+		}catch (IOException e) {
+			throw new RuntimeException("IOException while reading .config file", e);
+		}finally{
+			try{
+				br.close();				
+			}catch(IOException e){
+				throw new RuntimeException("IOException while closing .configfile", e);
+			}
+		}
+	}
 	
-	final public static String DATA_DIR = System.getProperty("user.dir") + "/etc/data/";
-	final public static String TABLE_NAME = "base_data";
-	
-	final static int DATA_SPLIT_UNIT = 100000 * 100; //100k * 100
 	/* 100k以上じゃないと処理時間増大, 100k Lineあたりが良さそう == 100k / "穴あき"率
 	 * 穴あき率 r := posision 1 ごとに平均 何line存在するか 0<r<1, r~= 0.01
 	 * bzip2 compressor's defalut block size is 900k (can customize 100k ~ 900k)
@@ -35,7 +66,7 @@ final public class ManageDB {// Util Class
 	 * And also, too large split_unit causes too-large memory allocation (may cause OutOfMemoryError )
 	 */
 	
-	public static void store(String runID, String sampleID, int chr, String filename) 
+	public void store(String runID, String sampleID, int chr, String filename) 
 			throws ClassNotFoundException, SQLException, IOException {
 		if( dbExist(runID) ) {
 			System.out.println("database already exists, start storing");
@@ -51,11 +82,11 @@ final public class ManageDB {// Util Class
 		System.out.println("Store fin, " + (t1-t0)/(1000*1000*1000+0.0) + " sec passed" );
 		
 	}
-	private static boolean dbExist(String runID) {
+	private boolean dbExist(String runID) {
 		return (new File( DATA_DIR + runID ).exists() );
 	}
 	
-	private static void parseAndStoreDB(PersonalID pid, int chr, String filename)
+	private void parseAndStoreDB(PersonalID pid, int chr, String filename)
 			throws SQLException, ClassNotFoundException, IOException{
 		// TODO primary制約にひっかかってエラーが出たら、それをキャッチしてクライアントに伝える
 		
@@ -75,8 +106,9 @@ final public class ManageDB {// Util Class
 	
 		// int line_ct_per_spilit = 0;
 		
-		final double minimumQual = 10.0;
-		final int  minimumDP = 4;
+		//TODO
+		//final double minimumQual = 10.0;
+		//final int  minimumDP = 4;
 		ConsensusReader.ConsensusLineInfo lineInfo = new ConsensusReader.ConsensusLineInfo(minimumQual, minimumDP);
 		ConsensusReader consensusReader = new ConsensusReader(filename);
 		
@@ -116,7 +148,7 @@ final public class ManageDB {// Util Class
 	}
 
 	
-	private static Connection initDB(String runID)
+	private Connection initDB(String runID)
 			throws ClassNotFoundException, SQLException {
 		
 		final String dbPath = DATA_DIR + runID;
@@ -142,13 +174,13 @@ final public class ManageDB {// Util Class
 		return connection;
 	}
 	
-	static Connection getConnection(String runID) throws SQLException, ClassNotFoundException {
+	Connection getConnection(String runID) throws SQLException, ClassNotFoundException {
 		final String dbPath = DATA_DIR + runID;
 		Connection con = DriverManager.getConnection("jdbc:sqlite" + ":" + dbPath );
 		return con;
 	}
 	
-	private static void storeDB(PreparedStatement ps, String sample_id, int chr, int pos_index,
+	private void storeDB(PreparedStatement ps, String sample_id, int chr, int pos_index,
 			byte[] pos_array, byte[] base_array)
 			throws SQLException {
 		ps.setInt(1, chr);
@@ -166,7 +198,7 @@ final public class ManageDB {// Util Class
 	/**
 	 * 動作遅いかもしれない
 	 */
-	private static SortedSet<Integer> getExistingPosIndex(int chr, Set<String> runIDs) 
+	private SortedSet<Integer> getExistingPosIndex(int chr, Set<String> runIDs) 
 			throws ClassNotFoundException, SQLException {
 		String get_pos_indexs = "select distinct pos_index from "+ TABLE_NAME + " where chr = ?";
 		SortedSet<Integer> ret = new TreeSet<Integer>();
@@ -181,17 +213,18 @@ final public class ManageDB {// Util Class
 		}
 		return ret;
 	}
-	public static void printDiffByChr(int chr, Map<String, ArrayList<String>> id, PrintStream out) 
+	public void printDiffByChr(int chr, Map<String, ArrayList<String>> id, PrintStream out) 
 	throws ClassNotFoundException, SQLException, IOException {
 		for(int pos : getExistingPosIndex(chr, id.keySet() ) ) {
 			int[] merged = getMergedData(chr, id, pos);
-			new PrintData(chr).printMergedData(merged, pos, out);
+			String chr_str = (chr==23)? "X" : (chr==24) ? "Y" : String.valueOf(chr);
+			new PrintData(chr_str, referenceDBPath).printMergedData(merged, pos, out);
 		}
 	}
 	/**
 	 * @param id Map<runID, ArrayList of sampleIDs> mergeするData特定用
 	 */
-	static int[] getMergedData(int chr, Map<String, ArrayList<String>> id, int pos_index) 
+	int[] getMergedData(int chr, Map<String, ArrayList<String>> id, int pos_index) 
 			throws IOException, SQLException, ClassNotFoundException {
 		int[] ret = new int[4*DATA_SPLIT_UNIT];
 		for(String runID : id.keySet()){
@@ -203,7 +236,7 @@ final public class ManageDB {// Util Class
 		}
 		return ret;
 	}
-	static int[] getMergedDataByRunID(int chr, String runID, List<String> sampleIDs, int pos_index) 
+	int[] getMergedDataByRunID(int chr, String runID, List<String> sampleIDs, int pos_index) 
 			throws SQLException, ClassNotFoundException, IOException {
 		if(sampleIDs.size() ==0) {
 			throw new IllegalArgumentException("sampleIDs[of "+runID +"] 's size == 0");
@@ -249,7 +282,7 @@ final public class ManageDB {// Util Class
 	/**
 	 * Dataがすでに存在するか確かめる.
 	 */
-	static boolean checkDataExistance(Connection con, String runID, String sampleID) throws SQLException{
+	boolean checkDataExistance(Connection con, String runID, String sampleID) throws SQLException{
 		String sql = "select * from " + TABLE_NAME + " where sample_id = ?";
 		// Connection con = getConnection(runID);
 		PreparedStatement ps = con.prepareStatement(sql);
@@ -263,7 +296,7 @@ final public class ManageDB {// Util Class
 	/**
 	 * For debug
 	 **/
-	public static void printOneSample(String runID, String sampleID, int chr_to_print) 
+	public void printOneSample(String runID, String sampleID, int chr_to_print) 
 			throws SQLException, ClassNotFoundException, IOException {
 		final String dbPath = DATA_DIR + runID;
 		if( !(new File(dbPath)).exists() ) {
@@ -301,12 +334,12 @@ final public class ManageDB {// Util Class
 }
 
 class PrintData {
-	private int chr;
+	private String chr;
 	ReferenceReader rr;
-	PrintData(int chr) throws SQLException{
+	PrintData(String chr, String refDBPath) throws SQLException{
 		this.chr = chr;
 		//TODO WHEN CHR = X/Y
-		rr = new ReferenceReader("chr" + String.valueOf(chr));
+		rr = new ReferenceReader( chr, refDBPath);
 	}
 	void printMergedData(int[] merged, int pos_index, PrintStream out ) throws IOException,SQLException{
 		if( merged.length % 4 != 0 ) {throw new IllegalArgumentException("arg<merged> 's format is incorrect"); }

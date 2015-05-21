@@ -30,7 +30,8 @@ public class TestMerge {
 		
 		System.out.println("print SNP");
 		long t0 = System.nanoTime();
-		ManageDB.printDiffByChr(chr, id, new PrintStream(
+		ManageDB mdb = new ManageDB();
+		mdb.printDiffByChr(chr, id, new PrintStream(
 				new File("/home/denjo/Documents/workspace/Consensus2VCF/etc/vcf_data/" + runID ))  );
 		long t1 = System.nanoTime();
 		System.out.println( (t1-t0)/(1000*1000*1000+0.0) + "sec to merge" );

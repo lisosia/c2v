@@ -6,7 +6,11 @@ import java.io.IOException;
 
 
 public class TestStore {
-
+	/**
+	 * 
+	 * @param args inputConsensusFileName, dbFilterValue,qbFiletrvalue
+	 * @throws Exception
+	 */
 	public static void main(String[] args) throws Exception {
 		
 		// final String consensu_data_dir = "/home/denjo/work/genome/base_data/";
@@ -19,12 +23,13 @@ public class TestStore {
 		
 		long t0 = System.nanoTime();
 		
+		ManageDB mdb = new ManageDB();
 		try{
 			
 			for (int i = 0; i < 5; i++) {
 				filename =  consensu_data_dir + input_file_prefix + i ;
 				//ManageDB.store(runID, String.valueOf(i) , chr, filename);
-				ManageDB.store(runID, String.valueOf(i) , chr, filename + ".bz2");	
+				mdb.store(runID, String.valueOf(i) , chr, filename + ".bz2");	
 
 			}
 			
@@ -33,7 +38,7 @@ public class TestStore {
 		}
 
 		long t1 = System.nanoTime();
-		ManageDB.printOneSample(runID, String.valueOf( 0 ) , chr);
+		mdb.printOneSample(runID, String.valueOf( 0 ) , chr);
 		long t2 = System.nanoTime();
 		
 		printTime(t0,t1,t2);
