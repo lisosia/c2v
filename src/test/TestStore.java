@@ -22,8 +22,8 @@ public class TestStore {
 		String filename;
 		
 		long t0 = System.nanoTime();
-		
-		ManageDB mdb = new ManageDB();
+		String config = "/home/denjo/Documents/workspace/Consensus2VCF/etc/.config";
+		ManageDB mdb = new ManageDB(config);
 		try{
 			
 			for (int i = 0; i < 5; i++) {

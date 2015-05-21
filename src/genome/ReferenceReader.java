@@ -27,7 +27,8 @@ public class ReferenceReader {
 	 * @param chromosome [ 1-22 | X | Y ].
 	 * @throws SQLException
 	 */
-	public ReferenceReader(String chromosome, String referenceDBpath) throws SQLException {
+	public ReferenceReader(String chromosome, String referenceDBpath) 
+			throws IOException,SQLException {
 		//TODO argument check
 		this.ReferenceDBPath = referenceDBpath;
 		if(chromosome.equals("X")) {this.chr_num = 23; 
@@ -42,7 +43,7 @@ public class ReferenceReader {
 		}
 		
 		final String REF_TABLENAME = "sequence";
-		sql = "select * from " + REF_TABLENAME + "where description_id = " + String.valueOf(this.chr_num)
+		sql = "select * from " + REF_TABLENAME + " where description_id = " + String.valueOf(this.chr_num)
 				+ " order by start asc";
 /*
  * FROM UTGB
@@ -54,7 +55,9 @@ public class ReferenceReader {
 		con = getRefConnection();
 		java.sql.Statement stmt = con.createStatement();
 		rs = stmt.executeQuery(sql);
-		if( ! rs.next() ){ throw new C2VRuntimeException("get 0 size resultset ");}
+		if( ! rs.next() ){ throw new C2VRuntimeException("get 0 size resultset ");}else {
+			setParams();
+		}
 		
 	}
 	
@@ -77,17 +80,18 @@ public class ReferenceReader {
 	 * @param posision
 	 * @return [ACGT]に対応する[0123], 現在の refStreamに positionが存在しない時は -1
 	 */
-	private int readFromRef(int posision) throws IOException {
+	private char readFromRef(int posision) throws IOException {
 		if( last_read_pos >= posision ) { throw new IllegalArgumentException(
-				"readFromRefStream should'd called with incremental arg<position>");}
+				"readFromRefStream should be called with incremental arg<position>\n"
+				+"last_called_pos:"+last_read_pos + " but arg<position>:" + posision);}
 		if(start_pos > posision || end_pos < posision ){throw new IllegalArgumentException(""
-				+ "start_pos<DB> <= position <= end_pos<DB> was not satisfied");}
-		return this.seq.indexOf(posision - this.start_pos);
+				+ "start_pos<DB> <= position <= end_pos<DB> was not satisfied\n"
+				+ "start:"+start_pos+",end:"+end_pos+"pos_to_read:"+posision);}
+		this.last_read_pos = posision;
+		return this.seq.charAt ( posision - this.start_pos );
 	}
 	
-	public int read(int posision) throws IOException, SQLException {
-		this.last_read_pos = posision;
-		
+	public char read(int posision) throws IOException, SQLException {
 		while( posision > this.end_pos ) {
 			if( rs.next() == false ) { 
 				throw new IllegalArgumentException(
@@ -106,9 +110,9 @@ public class ReferenceReader {
 	 * @return
 	 */
 	String getRefFilename(String chr) {
-		//TODO
 		return this.ReferenceDBPath;
 	}
+	
 	Connection getRefConnection() {
 		//TODO
 		final String dbPath = this.ReferenceDBPath;// use getRefFilename()

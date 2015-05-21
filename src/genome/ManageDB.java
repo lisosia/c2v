@@ -32,9 +32,9 @@ final public class ManageDB {// Util Class
 	final double minimumQual;
 	final int minimumDP;
 	final String referenceDBPath;
-	public ManageDB() {
+	public ManageDB(String configFilePath) {
 		//Read config file
-		final String CONFIG_FILENAME = System.getProperty("user.dir") + "/.config";
+		final String CONFIG_FILENAME = configFilePath; //System.getProperty("user.dir") + "/.config";
 		BufferedReader br = null; 
 		try{
 			br= new BufferedReader(new FileReader(CONFIG_FILENAME));
