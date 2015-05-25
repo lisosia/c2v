@@ -1,33 +1,70 @@
 package genome;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.PrintStream;
+import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
-
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Scanner;
 
 public class MainMerge {
-	public static void main(String[] args) throws ClassNotFoundException,SQLException,IOException {
-		final String outputDataDir= args[0];
-		final String outputDataPrefix = args[1];
+
+	public static void main(String[] args) throws ClassNotFoundException,
+			SQLException, IOException {
+
 		final String configFilePath;
-		//Should check duplication before merge
-			
-		final String runID = "001";
-		HashMap<String, ArrayList<String>> id = new HashMap<String,ArrayList<String>>();
-		id.put(runID, new ArrayList<String>());
-		
-/*		for(int i=0; i<5; ++i){
-			id.get(runID).add( String.valueOf(i) );
+		final String chr;
+		if (args.length != 2) {
+			throw new IllegalArgumentException(
+					"Usage: java -jar jarfile [chr_num(1-24,23=X,24=Y) | 'all'] configPath");
+		} else {
+			configFilePath = args[1];
+			chr = args[0];
 		}
-*/
-		int chr = 12;
+
+		Map<String, ArrayList<String>> id = createList(System.in);
+
 		ManageDB mdb = new ManageDB(configFilePath);
-		mdb.printDiffByChr( chr, id, 
-			new PrintStream( new File( outputDataDir+outputDataPrefix + String.valueOf(chr) ))
-			);
-		
+		if (chr == "all") {
+			for (int chr_num = 1; chr_num <= 22; chr_num++) {
+				mdb.printDiffByChr(chr, id, System.out);
+			}
+			mdb.printDiffByChr("X", id, System.out);
+			mdb.printDiffByChr("Y", id, System.out);
+		} else {
+			mdb.printDiffByChr(chr, id, System.out);
+		}
+
 	}
+
+	static Map<String, ArrayList<String>> createList(InputStream in) {
+		Scanner scanner = null;
+		String runID, sampleID;
+		HashMap<String, ArrayList<String>> ret = new HashMap<String, ArrayList<String>>();
+		HashSet<String> sampleIDsCheck = new HashSet<String>();
+		try {
+			scanner = new Scanner(in);
+			while (scanner.hasNext()) {
+				runID = scanner.next();
+				sampleID = scanner.next();
+				if (!ret.containsKey(runID)) {
+					ret.put(runID, new ArrayList<String>());
+				}
+				;
+				ArrayList<String> list = ret.get(runID);
+				if (!sampleIDsCheck.contains(sampleID)) {
+					sampleIDsCheck.add(sampleID);
+					list.add(sampleID);
+				} else {
+					throw new Error("sampleID Duplication, check input");
+				}
+			}
+		} finally {
+			scanner.close();
+		}
+		return ret;
+	}
+
 }
