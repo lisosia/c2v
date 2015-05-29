@@ -32,12 +32,11 @@ public class ConsensusReader {
 		String line;
 
 		while ((line = br.readLine()) != null && !line.equals("")) {
+			if(line.charAt(0)=='#'){continue;} // comment in consensus file
 			if (!lineInfo.parseLine(line)) {
-				// TODO より良いエラー処理
-				System.err.println("PARSE ERROR in readFilteredLine");
-				System.exit(1);
+				// TODO いまのところ false を返すのは INDEL の時のみ
+				continue;
 			}
-			;
 
 			if (lineInfo.isReliable()) {
 				return true;
@@ -83,8 +82,8 @@ public class ConsensusReader {
 		public boolean parseLine(String line) {
 			Matcher m = pattern.matcher(line);
 			if (!m.matches()) {
-				System.err.println("patternMatch fail");
-				return false;
+				throw new IllegalArgumentException("patternMatch failed. " + 
+						"consensus line:\n" + line);
 			}
 			this.chr = Integer.parseInt(m.group(1));
 			this.position = Integer.parseInt(m.group(2));
@@ -110,10 +109,9 @@ public class ConsensusReader {
 				altsComparedToRef[1] = ParseBase.returnDiff(ref,
 						alts.substring(2, 3));
 			} else {
-				// TODO NEVER Reach HERE
-				System.err.println("PARSE ERROR in parseLine");
-				System.exit(1);
-				return false;
+				// NEVER Reach HERE if consensus is correct format
+				throw new IllegalArgumentException("patternMatch failed. " + 
+						"consensus line:\n" + line);
 			}
 
 			// set dp, from INFO
@@ -122,12 +120,12 @@ public class ConsensusReader {
 			if (infoMatcher.matches()) {
 				this.dp = Integer.parseInt(infoMatcher.group(1));
 			} else {
-				// TODO NEVER REACH
-				System.err
-						.println("expression [ DP=(num) ] not foud in <INFO>");
-				System.err.println("info is following:\n" + info);
-				System.exit(1);
+				// NEVER REACH here
+				throw new IllegalArgumentException(
+						"expression [ DP=(num) ] not foud in <INFO>\n" +
+						"info is following:\n" + info);
 			}
+			
 			return true;
 		}
 
