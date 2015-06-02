@@ -34,8 +34,13 @@ final public class ManageDB {// Util Class
 	final double minimumQual;
 	final int minimumDP;
 	final String referenceDBPath;
-
-	public ManageDB(String configFilePath) {
+	CheckSex checkSex;
+	
+	public ManageDB(String configFilePath, String checkSexFilePath) throws IOException{
+		this(configFilePath);
+		this.checkSex = new CheckSex(checkSexFilePath);
+	}
+	public ManageDB(String configFilePath) throws IOException,FileNotFoundException{
 		// Read config file
 		final String CONFIG_FILENAME = configFilePath; // System.getProperty("user.dir")
 														// + "/.config";
@@ -56,11 +61,6 @@ final public class ManageDB {// Util Class
 					+ "\n<minimumQV(double), minimumDP(int)>:" + "<"
 					+ minimumQual + ", " + minimumDP + ">"
 					+ "\ngenomeReference file path: " + referenceDBPath + "\n");
-		} catch (FileNotFoundException e) {
-			throw new Error("CONFIG_FILE not found at: " + CONFIG_FILENAME);
-		} catch (IOException e) {
-			throw new RuntimeException(
-					"IOException while reading .config file", e);
 		} finally {
 			try {
 				br.close();
@@ -80,7 +80,7 @@ final public class ManageDB {// Util Class
 	 * cause OutOfMemoryError )
 	 */
 
-	public void store(String runID, String sampleID, int chr, String filename)
+	public void store(String runID, String sampleID, final int chr, String filename)
 			throws ClassNotFoundException, SQLException, IOException {
 		if (dbExist(runID)) {
 			System.err.println("database already exists, start storing");
@@ -103,7 +103,7 @@ final public class ManageDB {// Util Class
 		return (new File(DATA_DIR + runID).exists());
 	}
 
-	private void parseAndStoreDB(PersonalID pid, int chr, String filename)
+	private void parseAndStoreDB(PersonalID pid, final int chr, String filename)
 			throws SQLException, ClassNotFoundException, IOException {
 		// TODO primary制約にひっかかってエラーが出たら、それをキャッチしてクライアントに伝える
 
@@ -124,12 +124,10 @@ final public class ManageDB {// Util Class
 
 		// int line_ct_per_spilit = 0;
 
-		// TODO
-		// final double minimumQual = 10.0;
-		// final int minimumDP = 4;
 		ConsensusReader.ConsensusLineInfo lineInfo = new ConsensusReader.ConsensusLineInfo(
 				minimumQual, minimumDP);
-		ConsensusReader consensusReader = new ConsensusReader(filename);
+		Sex sampleSex = checkSex.getSex(pid.getSampleName());
+		ConsensusReader consensusReader = new ConsensusReader(filename,sampleSex );
 
 		while (true) {
 			if (consensusReader.readFilteredLine(lineInfo) == false) { // 読み込みここまで
@@ -161,15 +159,26 @@ final public class ManageDB {// Util Class
 
 			// line_ct_per_spilit++;
 			// WRITE
-			cmpBuf.writeData(lineInfo.position, lineInfo.altsComparedToRef[0],
-					lineInfo.altsComparedToRef[1]);
+			//TODO
+			if( (chr != 23 && chr != 24) || sampleSex != Sex.Male) {
+				cmpBuf.writeData(lineInfo.position, lineInfo.altsComparedToRef[0],
+				lineInfo.altsComparedToRef[1]);
+			} else { //XY染色体で、かつsampleがMaleのとき
+				if( (chr == 23 && !ConsensusReader.isPAR_X(lineInfo.position)) ||
+					(chr == 24 && !ConsensusReader.isPAR_Y(lineInfo.position)) ) {
+					// 0b1111 はMerge時に無視される
+					cmpBuf.writeData(lineInfo.position, 0b1111, lineInfo.altsComparedToRef[0] );
+				}else { // 染色体Yで(Maleで)PARのときは何もしない.
+				}
+			}
 
 		}
 
 		con.close();
 
 	}
-
+	
+	
 	private Connection initDB(String runID) throws ClassNotFoundException,
 			SQLException {
 
@@ -325,10 +334,17 @@ final public class ManageDB {// Util Class
 			PersonalGenomeDataDecompressor d = new PersonalGenomeDataDecompressor(
 					rs.getBytes("pos_array"), rs.getBytes("base_array"));
 			int[] data = new int[3];
+			
 			while (d.readNext(data) != -1) {
-				ret[4 * (data[2] - pos_index) + data[0]] += 1;
-				ret[4 * (data[2] - pos_index) + data[1]] += 1;
+				final int base1 = data[0];
+				final int base2 = data[1];
+				final int posRead = data[3];
+				if(base1 != 0b1111){
+					ret[4 * (posRead - pos_index) + base1] += 1;
+				}
+				ret[4 * (posRead - pos_index) + base2] += 1;
 			}
+			
 		}
 
 		con.close();
@@ -452,6 +468,7 @@ class PrintData {
 							INFO1);
 				} else {
 					// TODO can't compare
+					throw new Error("FETAL check source-code");
 				}
 
 			}

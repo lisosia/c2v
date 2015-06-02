@@ -18,7 +18,7 @@ public class MainMerge {
 		final String chr;
 		if (args.length != 2) {
 			throw new IllegalArgumentException(
-					"Usage: java -jar jarfile [chr_num(1-24,23=X,24=Y) | 'all'] configPath");
+					"Usage: java -jar jarfile genome.MainMerge [chr_num(1-24,23=X,24=Y) | 'all'] configPath");
 		} else {
 			configFilePath = args[1];
 			chr = args[0];

@@ -205,7 +205,7 @@ final public class GenomeDataStoreUtil {
 		 * @throws IOException
 		 */
 		public void writeDiffs(int diff1, int diff2) throws IOException {
-			cmpBuf.write8bit((byte) (diff1 << 2 | diff2));
+			cmpBuf.write8bit((byte) (diff1 << 4 | diff2));
 		}
 
 		/*
@@ -218,7 +218,7 @@ final public class GenomeDataStoreUtil {
 				cmpBuf.write8bit(0);
 				return;
 			}
-			byte b = (byte) ((Base.returnDiff(ref, base1) << 2) | (Base
+			byte b = (byte) ((Base.returnDiff(ref, base1) << 4) | (Base
 					.returnDiff(ref, base2)));
 			cmpBuf.write8bit(b);
 		}
@@ -261,8 +261,8 @@ final public class GenomeDataStoreUtil {
 			} catch (EOFException e) {
 				return -1;
 			}
-			buf[0] = ((b & 0b00001100) >> 2);
-			buf[1] = (b & 0b00000011);
+			buf[0] = ((b & 0b11110000) >> 4);
+			buf[1] = ( b & 0b00001111);
 			return 0;
 		}
 	}
