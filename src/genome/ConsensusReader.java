@@ -97,6 +97,7 @@ public class ConsensusReader {
 		public boolean isIndel;
 		public int dp;
 		public int alts_num;
+		public String genoType;
 		
 		final private double minimumQual;
 		final private int minimumDP;
@@ -125,8 +126,7 @@ public class ConsensusReader {
 			String alts = m.group(4);
 			this.qual = Float.parseFloat(m.group(5));
 			String info = m.group(6);
-			// TODO bam(最後の) なにに使うの???
-			String bam = m.group(8);
+			this.genoType = m.group(8).split(":")[0];
 			
 			this.isIndel = false;
 			if (info.contains("INDEL")) {
@@ -137,12 +137,15 @@ public class ConsensusReader {
 			// set altsComparedToRef
 			if (alts.equals(".")) { // 変異なし
 				altsComparedToRef[0] = altsComparedToRef[1] = 0;
+				alts_num = 0;
 			} else if (alts.length() == 1) { // alts == [ACGT] and different from ref(ACGT)
 				altsComparedToRef[0] = ParseBase.returnDiff(ref, alts);
 				altsComparedToRef[1] = 0;
+				alts_num = 1;
 			} else if (alts.length() == 3) {
 				altsComparedToRef[0] = ParseBase.returnDiff(ref,alts.substring(0, 1));
 				altsComparedToRef[1] = ParseBase.returnDiff(ref,alts.substring(2, 3));
+				alts_num = 2;
 			} else {
 				// NEVER Reach HERE if consensus is correct format
 				throw new IllegalArgumentException("patternMatch failed. " + 
@@ -159,18 +162,6 @@ public class ConsensusReader {
 				throw new IllegalArgumentException(
 						"expression [ DP=(num) ] not foud in <INFO>\n" +
 						"info is following:\n" + info);
-			}
-			
-			//set alts_num
-			if(bam.equals("0")){
-				this.alts_num = 0;				
-			}else if(bam.startsWith("0/1") || bam.startsWith("1/0")){
-				this.alts_num = 1;
-			}else if( bam.startsWith("1/1") ){
-				this.alts_num = 2;
-			}else {
-				throw new IllegalArgumentException("Unexpected bam file format" + 
-						"consensus line:\n" + line);
 			}
 			
 			return true;
