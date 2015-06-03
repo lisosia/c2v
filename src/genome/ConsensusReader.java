@@ -134,24 +134,40 @@ public class ConsensusReader {
 				return false;
 			} // INDEL あったら即リターン. この行を変えるときは, 後ろでバグらないよう注意
 
+			
+			//TODO 1/0 はあるのか
+			if(genoType.equals(".")){
+				alts_num = 0;
+			}else if(genoType.equals("0/1")){
+				alts_num = 1;
+			}else {
+				alts_num = 2;
+			}
+			
 			// set altsComparedToRef
 			if (alts.equals(".")) { // 変異なし
 				altsComparedToRef[0] = altsComparedToRef[1] = 0;
-				alts_num = 0;
 			} else if (alts.length() == 1) { // alts == [ACGT] and different from ref(ACGT)
 				altsComparedToRef[0] = ParseBase.returnDiff(ref, alts);
-				altsComparedToRef[1] = 0;
-				alts_num = 1;
+				if(alts_num==2){
+					altsComparedToRef[1] = altsComparedToRef[0];					
+				} else {
+					altsComparedToRef[1] = 0;										
+				}
 			} else if (alts.length() == 3) {
 				altsComparedToRef[0] = ParseBase.returnDiff(ref,alts.substring(0, 1));
 				altsComparedToRef[1] = ParseBase.returnDiff(ref,alts.substring(2, 3));
-				alts_num = 2;
+				if(alts_num==1){ //TODO genotypeと矛盾
+					
+				}
+				alts_num = 2; //TODO 暫定処理
 			} else {
 				// NEVER Reach HERE if consensus is correct format
 				throw new IllegalArgumentException("patternMatch failed. " + 
 						"consensus line:\n" + line);
 			}
 
+			
 			// set dp, from INFO
 			Pattern infoPatttern = Pattern.compile("DP=(\\d+)\\S+");
 			Matcher infoMatcher = infoPatttern.matcher(info);

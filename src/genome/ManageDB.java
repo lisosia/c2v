@@ -161,15 +161,23 @@ final public class ManageDB {// Util Class
 			// WRITE
 			//TODO
 			if( (chr != 23 && chr != 24) ||
-				 sampleSex == Sex.Female ||
-				(chr == 23 && ConsensusReader.isPAR_X(lineInfo.position)  ) ) {
-				cmpBuf.writeData(lineInfo.position, lineInfo.altsComparedToRef[0],
-				lineInfo.altsComparedToRef[1]);
-			} else { // ACGT１つのみ のとき
+				 sampleSex == Sex.Female
+			  ) {
+				cmpBuf.writeData(lineInfo.position,
+						lineInfo.altsComparedToRef[0],
+						lineInfo.altsComparedToRef[1]);
+			} else if (chr == 23 && ConsensusReader.isPAR_X(lineInfo.position)  ){
+				//ACGT １つだが、２つ分数える
+				cmpBuf.writeData(lineInfo.position, 
+						lineInfo.altsComparedToRef[0],
+						lineInfo.altsComparedToRef[1]);
+			} else { // ACGT 物理的に１つのみ のとき
 				if( !(chr == 24 && ConsensusReader.isPAR_Y(lineInfo.position)) &&
 					!lineInfo.genoType.equals("0/1")    ) { // 0/1のときはmisscall?
 					// 0b1111 はMerge時に無視される
-					cmpBuf.writeData(lineInfo.position, 0b1111, lineInfo.altsComparedToRef[0] );
+					cmpBuf.writeData(lineInfo.position, 
+						0b1111,
+						lineInfo.altsComparedToRef[0] );
 				}else { // 染色体Yで(Maleで)PARのときは何もしない.
 				}
 			}
