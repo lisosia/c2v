@@ -41,6 +41,7 @@ public class ConsensusReader {
 			}
 			
 			// 男性のXY染色体の時, 非PAR, altsStr.length()==3 && bamが 0/1 のものは信頼できない 
+			// misscall となる
 			if( (chr==23 && this.sex == Sex.Male && lineInfo.altsStr.length()==3 
 					&& lineInfo.alts_num == 1 && !isPAR_X(lineInfo.position) ) || 
 				(chr==23 && this.sex == Sex.Male && lineInfo.altsStr.length()==3 
