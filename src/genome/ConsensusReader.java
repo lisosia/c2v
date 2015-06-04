@@ -12,14 +12,14 @@ import java.util.zip.GZIPInputStream;
 
 public class ConsensusReader {
 	BufferedReader br;
-	Matcher matcher = null;
-	ConsensusLineInfo lineInfo;
-	Sex sex;
+	final Sex sex;
+	final int chr;
 
-	public ConsensusReader(String filename, Sex sex) throws IOException {
+	public ConsensusReader(final String filename, final Sex sex, final int chr) throws IOException {
 		this.sex = sex;
 		InputStream is = FileOpen.openCompressedFile(filename);
 		this.br = new BufferedReader(new InputStreamReader(is));
+		this.chr = chr;
 	}
 
 	/**
@@ -40,8 +40,12 @@ public class ConsensusReader {
 				continue;
 			}
 			
-			// 男性のXY染色体の時, bamが 0/1 のものは信頼できない 
-			if(this.sex == Sex.Male && lineInfo.alts_num == 1) {continue;}
+			// 男性のXY染色体の時, 非PAR, altsStr.length()==3 && bamが 0/1 のものは信頼できない 
+			if( (chr==23 && this.sex == Sex.Male && lineInfo.altsStr.length()==3 
+					&& lineInfo.alts_num == 1 && !isPAR_X(lineInfo.position) ) || 
+				(chr==23 && this.sex == Sex.Male && lineInfo.altsStr.length()==3 
+					&& lineInfo.alts_num == 1 && !isPAR_Y(lineInfo.position))	) 
+			{continue;}
 			
 			if (lineInfo.isReliable()) {
 				return true;
@@ -92,6 +96,7 @@ public class ConsensusReader {
 
 		public int chr; // X,Yの時はそれぞれ -1,0 とする
 		public int position;
+		public String altsStr;
 		public int[] altsComparedToRef;
 		public float qual;
 		public boolean isIndel;
@@ -123,7 +128,7 @@ public class ConsensusReader {
 			this.chr = Integer.parseInt(m.group(1));
 			this.position = Integer.parseInt(m.group(2));
 			String ref = m.group(3);
-			String alts = m.group(4);
+			this.altsStr = m.group(4);
 			this.qual = Float.parseFloat(m.group(5));
 			String info = m.group(6);
 			this.genoType = m.group(8).split(":")[0];
@@ -145,18 +150,18 @@ public class ConsensusReader {
 			}
 			
 			// set altsComparedToRef
-			if (alts.equals(".")) { // 変異なし
+			if (altsStr.equals(".")) { // 変異なし
 				altsComparedToRef[0] = altsComparedToRef[1] = 0;
-			} else if (alts.length() == 1) { // alts == [ACGT] and different from ref(ACGT)
-				altsComparedToRef[0] = ParseBase.returnDiff(ref, alts);
+			} else if (altsStr.length() == 1) { // alts == [ACGT] and different from ref(ACGT)
+				altsComparedToRef[0] = ParseBase.returnDiff(ref, altsStr);
 				if(alts_num==2){
 					altsComparedToRef[1] = altsComparedToRef[0];					
 				} else {
 					altsComparedToRef[1] = 0;										
 				}
-			} else if (alts.length() == 3) {
-				altsComparedToRef[0] = ParseBase.returnDiff(ref,alts.substring(0, 1));
-				altsComparedToRef[1] = ParseBase.returnDiff(ref,alts.substring(2, 3));
+			} else if (altsStr.length() == 3) {
+				altsComparedToRef[0] = ParseBase.returnDiff(ref,altsStr.substring(0, 1));
+				altsComparedToRef[1] = ParseBase.returnDiff(ref,altsStr.substring(2, 3));
 				if(alts_num==1){ //TODO genotypeと矛盾
 					
 				}

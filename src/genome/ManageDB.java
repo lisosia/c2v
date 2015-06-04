@@ -127,7 +127,7 @@ final public class ManageDB {// Util Class
 		ConsensusReader.ConsensusLineInfo lineInfo = new ConsensusReader.ConsensusLineInfo(
 				minimumQual, minimumDP);
 		Sex sampleSex = checkSex.getSex(pid.getSampleName());
-		ConsensusReader consensusReader = new ConsensusReader(filename,sampleSex );
+		ConsensusReader consensusReader = new ConsensusReader(filename,sampleSex, chr );
 
 		while (true) {
 			if (consensusReader.readFilteredLine(lineInfo) == false) { // 読み込みここまで
@@ -161,25 +161,20 @@ final public class ManageDB {// Util Class
 			// WRITE
 			//TODO
 			if( (chr != 23 && chr != 24) ||
-				 sampleSex == Sex.Female
+				 sampleSex == Sex.Female ||
+				 chr == 23 && ConsensusReader.isPAR_X(lineInfo.position)
+				 //ACGT １つだが、Yの文も含めて２つ分数える
 			  ) {
 				cmpBuf.writeData(lineInfo.position,
 						lineInfo.altsComparedToRef[0],
 						lineInfo.altsComparedToRef[1]);
-			} else if (chr == 23 && ConsensusReader.isPAR_X(lineInfo.position)  ){
-				//ACGT １つだが、２つ分数える
+			} else if( !( chr == 24 && ConsensusReader.isPAR_Y(lineInfo.position) ) && //つまり男性,XY,非PAR
+					 	!lineInfo.genoType.equals("0/1")    ) { // 0/1のときはmisscall, readFilteredLineしてるのでこの行入らないけど一応
+				// 0b1111 はMerge時に無視される
 				cmpBuf.writeData(lineInfo.position, 
-						lineInfo.altsComparedToRef[0],
-						lineInfo.altsComparedToRef[1]);
-			} else { // ACGT 物理的に１つのみ のとき
-				if( !(chr == 24 && ConsensusReader.isPAR_Y(lineInfo.position)) &&
-					!lineInfo.genoType.equals("0/1")    ) { // 0/1のときはmisscall?
-					// 0b1111 はMerge時に無視される
-					cmpBuf.writeData(lineInfo.position, 
-						0b1111,
-						lineInfo.altsComparedToRef[0] );
-				}else { // 染色体Yで(Maleで)PARのときは何もしない.
-				}
+					0b1111,
+					lineInfo.altsComparedToRef[0] );
+			}else { // 染色体Yで(Maleで)PARのときは何もしない.
 			}
 
 		}
