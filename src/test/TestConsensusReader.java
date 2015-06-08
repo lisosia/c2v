@@ -14,7 +14,7 @@ public class TestConsensusReader {
 		ChrSet humanChrSet = ChrSetFactory.getHumanChrSet();
 		Chr chr = humanChrSet.getChr(13);
 		ConsensusReader cr = new ConsensusReader(
-				"/home/denjo/Documents/workspace/Consensus2VCF/src/etc/input1.consensus", Sex.Male, chr);
+				"/home/denjo/DOCS/workspace/Consensus2VCF/etc/consensus_data/10M_0", Sex.Male, chr);
 		ConsensusReader.ConsensusLineInfo info = new ConsensusReader.ConsensusLineInfo(
 				0, 0);
 		while (cr.readFilteredLine(info)) {

@@ -119,7 +119,7 @@ final public class ManageDB {// Util Class
 		// TODO primary制約にひっかかってエラーが出たら、それをキャッチしてクライアントに伝える
 
 		Connection con = getConnection(pid.getRunID());
-		if (checkDataExistance(con, pid.getRunID(), pid.getSampleName())) {
+		if (checkDataExistance(con, pid.getRunID(), pid.getSampleName(), chr)) {
 			System.err.println("Data[ runID:" + pid.getRunID() + ",sampleName:"
 					+ pid.getSampleName() + "] " + "already exists. check <"
 					+ DATA_DIR + pid.getRunID() + "> .");
@@ -148,9 +148,10 @@ final public class ManageDB {// Util Class
 				break;
 			}
 
-			if (lineInfo.chr != chr.toString() ) {
+			if ( !lineInfo.chr.equals( chr.getStr() ) ) {
 				throw new IllegalArgumentException(
-						"与えられたchromesomeと 入力<filenameの中身> が一致しません");
+						"与えられた chr: "+chr.getStr() +" と 入力<filename:"+filename+" の中身> が一致しません\n"
+								+ "consensusfile:chr:"+lineInfo.chr);
 			}
 
 			if (isFirst) {
