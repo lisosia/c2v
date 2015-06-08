@@ -1,5 +1,7 @@
 package genome;
 
+import genome.chr.Chr;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -37,14 +39,14 @@ final public class GenomeDataStoreUtil {
 
 	public static final class PersonalGenomeDataCompressor {
 		private final Connection con;
-		private final int chr;
+		private final Chr chr;
 		private int pos_index;
 		private PositionArrayCompressor posBuf;
 		private BaseArrayCompressor baseBuf;
 		private final PersonalID pid;
 
 		public PersonalGenomeDataCompressor(PersonalID id, Connection con,
-				int chr, int pos_index) throws IOException {
+				Chr chr, int pos_index) throws IOException {
 			this.pid = id;
 			this.con = con;
 			this.chr = chr;
@@ -62,7 +64,7 @@ final public class GenomeDataStoreUtil {
 		public void StoreDB(String tableName) throws SQLException, IOException {
 			String sql = "INSERT INTO " + tableName + " VALUES(?,?,?,?,?)";
 			PreparedStatement ps = this.con.prepareStatement(sql);
-			ps.setInt(1, chr);
+			ps.setInt(1, chr.getNumForDB() );
 			ps.setInt(2, this.pos_index);
 			ps.setString(3, pid.getSampleName());
 			ps.setBytes(4, this.posBuf.toByteArray());

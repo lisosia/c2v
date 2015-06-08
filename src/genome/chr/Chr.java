@@ -37,6 +37,10 @@ public class Chr {
 		}
 	}
 	
+	public boolean isSexChr() {
+		return (isMaleSexChr || isFemaleSexChr);
+	}
+	
 	public String toString() {
 		return "Chr[str:"+str+"/numForDB:"+numForDB+"]";
 	}

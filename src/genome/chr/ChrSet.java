@@ -44,6 +44,16 @@ public class ChrSet {
 		return ret;
 	}
 	
+	public java.util.List<Chr> getSexChrs() {
+		java.util.List<Chr> ret = new ArrayList<Chr>();
+		for (int i = 0; i < chrSetArgs.length ; i++) {
+			ChrSetArg e = this.chrSetArgs[i];
+			Chr toAdd = new Chr(e.numForDB, e.sexChr.getStr() );
+			ret.add( toAdd );
+		}
+		return ret;
+	}
+
 	public Chr getChr(final int numForDB) {
 		return new Chr(numForDB,  numToStr(numForDB) );
 	}

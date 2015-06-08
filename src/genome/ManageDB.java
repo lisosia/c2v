@@ -5,6 +5,7 @@ import genome.GenomeDataStoreUtil.PersonalGenomeDataCompressor;
 import genome.GenomeDataStoreUtil.PersonalGenomeDataDecompressor;
 import genome.GenomeDataStoreUtil.PersonalID;
 import genome.GenomeDataStoreUtil.PositionArrayDeCompressor;
+import genome.chr.Chr;
 import genome.chr.Sex;
 
 import java.io.BufferedReader;
@@ -37,11 +38,19 @@ final public class ManageDB {// Util Class
 	final String referenceDBPath;
 	CheckSex checkSex;
 	
-	public ManageDB(String configFilePath, String checkSexFilePath) throws IOException{
-		this(configFilePath);
-		this.checkSex = new CheckSex(checkSexFilePath);
-	}
-	public ManageDB(String configFilePath) throws IOException,FileNotFoundException{
+	/**
+	 * 
+	 * @param configFilePath
+	 * @param checkSexFilePath mergeしたいときはnullが許される
+	 * @throws IOException
+	 * @throws FileNotFoundException
+	 */
+	public ManageDB(String configFilePath , String checkSexFilePath) throws IOException,FileNotFoundException{
+		if(checkSexFilePath==null){
+			this.checkSex = null;
+		} else {
+			this.checkSex = new CheckSex(checkSexFilePath);
+		}
 		// Read config file
 		final String CONFIG_FILENAME = configFilePath; // System.getProperty("user.dir")
 														// + "/.config";
@@ -64,7 +73,8 @@ final public class ManageDB {// Util Class
 					+ "\ngenomeReference file path: " + referenceDBPath + "\n");
 		} finally {
 			try {
-				br.close();
+				//TODO
+				if(br!=null){ br.close(); }
 			} catch (IOException e) {
 				throw new RuntimeException(
 						"IOException while closing .configfile", e);
@@ -81,7 +91,7 @@ final public class ManageDB {// Util Class
 	 * cause OutOfMemoryError )
 	 */
 
-	public void store(String runID, String sampleID, final int chr, String filename)
+	public void store(String runID, String sampleID, final Chr chr, String filename)
 			throws ClassNotFoundException, SQLException, IOException {
 		if (dbExist(runID)) {
 			System.err.println("database already exists, start storing");
@@ -104,7 +114,7 @@ final public class ManageDB {// Util Class
 		return (new File(DATA_DIR + runID).exists());
 	}
 
-	private void parseAndStoreDB(PersonalID pid, final int chr, String filename)
+	private void parseAndStoreDB(PersonalID pid, final Chr chr, String filename)
 			throws SQLException, ClassNotFoundException, IOException {
 		// TODO primary制約にひっかかってエラーが出たら、それをキャッチしてクライアントに伝える
 
@@ -138,7 +148,7 @@ final public class ManageDB {// Util Class
 				break;
 			}
 
-			if (lineInfo.chr != chr) {
+			if (lineInfo.chr != chr.toString() ) {
 				throw new IllegalArgumentException(
 						"与えられたchromesomeと 入力<filenameの中身> が一致しません");
 			}
@@ -161,15 +171,15 @@ final public class ManageDB {// Util Class
 			// line_ct_per_spilit++;
 			// WRITE
 			//TODO
-			if( (chr != 23 && chr != 24) ||
+			if( !chr.isSexChr() ||
 				 sampleSex == Sex.Female ||
-				 chr == 23 && ConsensusReader.isPAR_X(lineInfo.position)
+				 chr.getStr() == "X" && ConsensusReader.isPAR_X(lineInfo.position)
 				 //ACGT １つだが、Yの文も含めて２つ分数える
 			  ) {
 				cmpBuf.writeData(lineInfo.position,
 						lineInfo.altsComparedToRef[0],
 						lineInfo.altsComparedToRef[1]);
-			} else if( !( chr == 24 && ConsensusReader.isPAR_Y(lineInfo.position) ) && //つまり男性,XY,非PAR
+			} else if( !( chr.getStr() == "Y" && ConsensusReader.isPAR_Y(lineInfo.position) ) && //つまり男性,XY,非PAR
 					 	!lineInfo.genoType.equals("0/1")    ) { // 0/1のときはmisscall, readFilteredLineしてるのでこの行入らないけど一応
 				// 0b1111 はMerge時に無視される
 				cmpBuf.writeData(lineInfo.position, 
@@ -241,7 +251,7 @@ final public class ManageDB {// Util Class
 	/**
 	 * 動作遅いかもしれない
 	 */
-	private SortedSet<Integer> getExistingPosIndex(int chr, Set<String> runIDs)
+	private SortedSet<Integer> getExistingPosIndex(Chr chr, Set<String> runIDs)
 			throws ClassNotFoundException, SQLException {
 		String get_pos_indexs = "select distinct pos_index from " + TABLE_NAME
 				+ " where chr = ?";
@@ -253,7 +263,7 @@ final public class ManageDB {// Util Class
 			}
 			Connection con = getConnection(runID);
 			PreparedStatement ps = con.prepareStatement(get_pos_indexs);
-			ps.setInt(1, chr);
+			ps.setInt(1, chr.getNumForDB() );
 			ResultSet rs = ps.executeQuery();
 			while (rs.next()) {
 				ret.add(rs.getInt("pos_index"));
@@ -267,14 +277,12 @@ final public class ManageDB {// Util Class
 		return ret;
 	}
 
-	public void printDiffByChr(String chr, Map<String, ArrayList<String>> id,
+	public void printDiffByChr(Chr chr, Map<String, ArrayList<String>> id,
 			PrintStream out) throws ClassNotFoundException, SQLException,
 			IOException {
-		int chr_num = (chr.equals("X")) ? 23 : (chr.equals("Y")) ? 24 : Integer
-				.valueOf(chr);
 
-		for (int pos : getExistingPosIndex(chr_num, id.keySet())) {
-			int[] merged = getMergedData(chr_num, id, pos);
+		for (int pos : getExistingPosIndex(chr, id.keySet())) {
+			int[] merged = getMergedData(chr, id, pos);
 			// String chr_str = (chr==23)? "X" : (chr==24) ? "Y" :
 			// String.valueOf(chr);
 			new PrintData(chr, referenceDBPath).printMergedData(merged, pos,
@@ -286,7 +294,7 @@ final public class ManageDB {// Util Class
 	 * @param id
 	 *            Map<runID, ArrayList of sampleIDs> mergeするData特定用
 	 */
-	int[] getMergedData(int chr, Map<String, ArrayList<String>> id,
+	int[] getMergedData(Chr chr, Map<String, ArrayList<String>> id,
 			int pos_index) throws IOException, SQLException,
 			ClassNotFoundException {
 		int[] ret = new int[4 * DATA_SPLIT_UNIT];
@@ -301,7 +309,7 @@ final public class ManageDB {// Util Class
 		return ret;
 	}
 
-	int[] getMergedDataByRunID(int chr, String runID, List<String> sampleIDs,
+	int[] getMergedDataByRunID(Chr chr, String runID, List<String> sampleIDs,
 			int pos_index) throws SQLException, ClassNotFoundException,
 			IOException {
 		if (sampleIDs.size() == 0) {
@@ -328,7 +336,7 @@ final public class ManageDB {// Util Class
 		sb.append(")");
 		final String sql = sb.toString();
 		PreparedStatement ps = con.prepareStatement(sql);
-		ps.setInt(1, chr);
+		ps.setInt(1, chr.getNumForDB() );
 		ps.setInt(2, pos_index);
 		ResultSet rs = ps.executeQuery();
 
@@ -378,12 +386,12 @@ final public class ManageDB {// Util Class
 	}
 
 	boolean checkDataExistance(Connection con, String runID, String sampleID,
-			int chr) throws SQLException {
+			Chr chr) throws SQLException {
 		String sql = "select * from " + TABLE_NAME
 				+ " where chr = ? and sample_id = ? ";
 		// Connection con = getConnection(runID);
 		PreparedStatement ps = con.prepareStatement(sql);
-		ps.setInt(1, chr);
+		ps.setInt(1, chr.getNumForDB() );
 		ps.setString(2, sampleID);
 		ResultSet rs = ps.executeQuery();
 		return rs.next();
@@ -392,7 +400,7 @@ final public class ManageDB {// Util Class
 	/**
 	 * For debug
 	 **/
-	public void printOneSample(String runID, String sampleID, int chr_to_print)
+	public void printOneSample(String runID, String sampleID, Chr chr_to_print)
 			throws SQLException, ClassNotFoundException, IOException {
 		final String dbPath = DATA_DIR + runID;
 		if (!(new File(dbPath)).exists()) {
@@ -404,7 +412,7 @@ final public class ManageDB {// Util Class
 				+ " where chr = ? and sample_id = ?";
 		Connection con = getConnection(runID);
 		PreparedStatement ps = con.prepareStatement(sql);
-		ps.setInt(1, chr_to_print);
+		ps.setInt(1, chr_to_print.getNumForDB() );
 		ps.setString(2, sampleID);
 		ResultSet rs = ps.executeQuery();
 
@@ -435,10 +443,10 @@ final public class ManageDB {// Util Class
 }
 
 class PrintData {
-	private String chr;
+	private Chr chr;
 	ReferenceReader rr;
 
-	PrintData(String chr, String refDBPath) throws IOException, SQLException {
+	PrintData(Chr chr, String refDBPath) throws IOException, SQLException {
 		this.chr = chr;
 		// TODO WHEN CHR = X/Y
 		rr = new ReferenceReader(chr, refDBPath);
@@ -469,7 +477,7 @@ class PrintData {
 					// String ALTs =:
 					String INFO1 = "AN=" + (alt_total) + ";AC=" + alt_A + ","
 							+ alt_C + "," + alt_G + "," + alt_T + ";";
-					out.printf("chr%s\t%s\t%s\t.\t%s", chr, ACGT[ref_num],
+					out.printf("chr%s\t%s\t%s\t.\t%s", chr.getStr() , ACGT[ref_num],
 							retAlTsString(alt_A, alt_C, alt_G, alt_T, ref_num),
 							INFO1);
 				} else {

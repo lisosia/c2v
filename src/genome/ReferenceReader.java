@@ -1,5 +1,7 @@
 package genome;
 
+import genome.chr.Chr;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -11,7 +13,7 @@ import java.sql.SQLException;
 import java.util.zip.GZIPInputStream;
 
 public class ReferenceReader {
-	private int chr_num;
+	private Chr chr;
 
 	private final Connection con;
 	private ResultSet rs;
@@ -29,27 +31,15 @@ public class ReferenceReader {
 	 *            [ 1-22 | X | Y ].
 	 * @throws SQLException
 	 */
-	public ReferenceReader(String chromosome, String referenceDBpath)
+	public ReferenceReader(Chr chromosome, String referenceDBpath)
 			throws IOException, SQLException {
 
 		// TODO argument check
 		this.ReferenceDBPath = referenceDBpath;
-		if (chromosome.equals("X")) {
-			this.chr_num = 23;
-		} else if (chromosome.equals("Y")) {
-			this.chr_num = 24;
-		} else {
-			try {
-				this.chr_num = Integer.parseInt(chromosome);
-			} catch (NumberFormatException e) {
-				throw new IllegalArgumentException(
-						"arg<chromosome> should be [ 1-22 | X | Y ]"
-								+ "chromosome: [" + chromosome + "]");
-			}
-		}
+		this.chr = chromosome;
 		final String REF_TABLENAME = "sequence";
 		sql = "select * from " + REF_TABLENAME + " where description_id = "
-				+ String.valueOf(this.chr_num) + " order by start asc";
+				+ chr.getNumForDB() + " order by start asc";
 		/*
 		 * FROM UTGB
 		 */
@@ -156,7 +146,7 @@ public class ReferenceReader {
 	 *            1~22の文字列表現　または "X" or "Y"
 	 * @return
 	 */
-	String getRefFilename(String chr) {
+	String getRefFilename(Chr chr) {
 		return this.ReferenceDBPath;
 	}
 

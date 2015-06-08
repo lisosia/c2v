@@ -1,6 +1,9 @@
 package test;
 
 import genome.ManageDB;
+import genome.chr.Chr;
+import genome.chr.ChrSet;
+import genome.chr.ChrSetFactory;
 
 import java.io.IOException;
 
@@ -18,15 +21,16 @@ public class TestStore {
 		final String consensu_data_dir = "/home/denjo/Documents/workspace/Consensus2VCF/etc/consensus_data/";
 		String input_file_prefix = "10M_";
 
-		int chr = 12;
+		ChrSet humanChrSet = ChrSetFactory.getHumanChrSet();
+		Chr chr = humanChrSet.getChr(12);
 		String runID = "001";
 		String filename;
 
 		long t0 = System.nanoTime();
-		String config = "/home/denjo/Documents/workspace/Consensus2VCF/etc/.config";
-		ManageDB mdb = new ManageDB(config);
+		String config = "/home/denjo/DOCS/workspace/Consensus2VCF/etc/.config";
+		String checkSexFile = "/fjsaskldjasljdlas";
+		ManageDB mdb = new ManageDB(config, checkSexFile);
 		try {
-
 			for (int i = 0; i < 5; i++) {
 				filename = consensu_data_dir + input_file_prefix + i;
 				// ManageDB.store(runID, String.valueOf(i) , chr, filename);

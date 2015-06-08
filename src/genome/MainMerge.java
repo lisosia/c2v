@@ -1,5 +1,9 @@
 package genome;
 
+import genome.chr.Chr;
+import genome.chr.ChrSet;
+import genome.chr.ChrSetFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
@@ -15,25 +19,29 @@ public class MainMerge {
 			SQLException, IOException {
 
 		final String configFilePath;
-		final String chr;
+		final String chrStr;
+		final ChrSet humanChrSet = ChrSetFactory.getHumanChrSet();
 		if (args.length != 2) {
 			throw new IllegalArgumentException(
-					"Usage: java -jar jarfile genome.MainMerge [chr_num(1-24,23=X,24=Y) | 'all'] configPath");
+					"Usage: java -jar jarfile genome.MainMerge [chr([1-22]|X|Y) | 'all'] configPath");
 		} else {
 			configFilePath = args[1];
-			chr = args[0];
+			chrStr = args[0];
 		}
 
 		Map<String, ArrayList<String>> id = createList(System.in);
 
 		ManageDB mdb = new ManageDB(configFilePath);
-		if (chr == "all") {
-			for (int chr_num = 1; chr_num <= 22; chr_num++) {
-				mdb.printDiffByChr(chr, id, System.out);
+		if (chrStr.equals("all") ) {
+			for (Chr c : humanChrSet.getNormalChrs() ) {
+				mdb.printDiffByChr(c, id, System.out);				
 			}
-			mdb.printDiffByChr("X", id, System.out);
-			mdb.printDiffByChr("Y", id, System.out);
+			for (Chr c : humanChrSet.getSexChrs() ) {
+				mdb.printDiffByChr(c, id, System.out);				
+			}
+
 		} else {
+			Chr chr = humanChrSet.getChr( args[0] );			
 			mdb.printDiffByChr(chr, id, System.out);
 		}
 

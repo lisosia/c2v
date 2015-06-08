@@ -1,5 +1,6 @@
 package genome;
 
+import genome.chr.Chr;
 import genome.chr.Sex;
 
 import java.io.BufferedInputStream;
@@ -15,9 +16,9 @@ import java.util.zip.GZIPInputStream;
 public class ConsensusReader {
 	BufferedReader br;
 	final Sex sex;
-	final int chr;
+	final Chr chr;
 
-	public ConsensusReader(final String filename, final Sex sex, final int chr) throws IOException {
+	public ConsensusReader(final String filename, final Sex sex, final Chr chr) throws IOException {
 		this.sex = sex;
 		InputStream is = FileOpen.openCompressedFile(filename);
 		this.br = new BufferedReader(new InputStreamReader(is));
@@ -44,9 +45,9 @@ public class ConsensusReader {
 			
 			// 男性のXY染色体の時, 非PAR, altsStr.length()==3 && bamが 0/1 のものは信頼できない 
 			// misscall となる
-			if( (chr==23 && this.sex == Sex.Male && lineInfo.altsStr.length()==3 
+			if( (chr.getNumForDB()==23 && this.sex == Sex.Male && lineInfo.altsStr.length()==3 
 					&& lineInfo.alts_num == 1 && !isPAR_X(lineInfo.position) ) || 
-				(chr==23 && this.sex == Sex.Male && lineInfo.altsStr.length()==3 
+				(chr.getNumForDB()==23 && this.sex == Sex.Male && lineInfo.altsStr.length()==3 
 					&& lineInfo.alts_num == 1 && !isPAR_Y(lineInfo.position))	) 
 			{continue;}
 			
@@ -86,7 +87,7 @@ public class ConsensusReader {
 		// format(pl) BAM[0/0 or ...]num(謎)
 		// TODO bam の形式、その意味が　不明
 		final static Pattern pattern = Pattern.compile(
-				"chr(\\d+)\\t" //1: CHR
+				"chr(\\S+)\\t" //1: CHR
 				+ "(\\d+)\\t" // 2: POS
 				+ "\\.\\t" //       ID
 				+ "(\\S+)\\t" // 3: REF
@@ -97,7 +98,7 @@ public class ConsensusReader {
 				+ "(\\S+)\\t" // 7: FORMAT
 				+ "(\\S+)"); //  8: BAM
 
-		public int chr; // X,Yの時はそれぞれ -1,0 とする
+		public String chr; // X,Yの時はそれぞれ -1,0 とする
 		public int position;
 		public String altsStr;
 		public int[] altsComparedToRef;
@@ -128,7 +129,7 @@ public class ConsensusReader {
 				throw new IllegalArgumentException("patternMatch failed. " + 
 						"consensus line:\n" + line);
 			}
-			this.chr = Integer.parseInt(m.group(1));
+			this.chr = m.group(1);
 			this.position = Integer.parseInt(m.group(2));
 			String ref = m.group(3);
 			this.altsStr = m.group(4);

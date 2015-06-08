@@ -1,6 +1,8 @@
 package test;
 
 import genome.ManageDB;
+import genome.chr.Chr;
+import genome.chr.ChrSetFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,13 +29,13 @@ public class TestMerge {
 		 * id.get("002").add(String.valueOf
 		 * (0));id.get("002").add(String.valueOf(1));
 		 */
-		String chr = "12";
+		Chr chr = ChrSetFactory.getHumanChrSet().getChr(12);
 		// ManageDB.printOneSample(runID, "A", 12);
 
 		System.out.println("print SNP");
 		long t0 = System.nanoTime();
-		String config = "/home/denjo/Documents/workspace/Consensus2VCF/etc/.config";
-		ManageDB mdb = new ManageDB(config);
+		String config = "/home/denjo/DOCS/workspace/Consensus2VCF/etc/.config";
+		ManageDB mdb = new ManageDB(config, null);
 		mdb.printDiffByChr(chr, id, new PrintStream(new File(
 				"/home/denjo/Documents/workspace/Consensus2VCF/etc/vcf_data/"
 						+ runID)));
