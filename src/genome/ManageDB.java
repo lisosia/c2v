@@ -5,6 +5,7 @@ import genome.GenomeDataStoreUtil.PersonalGenomeDataCompressor;
 import genome.GenomeDataStoreUtil.PersonalGenomeDataDecompressor;
 import genome.GenomeDataStoreUtil.PersonalID;
 import genome.GenomeDataStoreUtil.PositionArrayDeCompressor;
+import genome.chr.Sex;
 
 import java.io.BufferedReader;
 import java.io.File;

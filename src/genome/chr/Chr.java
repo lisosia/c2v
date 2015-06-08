@@ -1,17 +1,26 @@
 package genome.chr;
 
-import genome.Sex;
+
 
 
 
 public class Chr {
 	private final int numForDB;
 	private final String str;
-	private final Sex sex;
+	private final boolean isMaleSexChr;
+	private final boolean isFemaleSexChr;
+	
 	public Chr(final int numForDB, final String str) {
 		this.numForDB = numForDB;
 		this.str = str;
-		this.sex = null;
+		this.isMaleSexChr = this.isFemaleSexChr = false;
+	}
+
+	public Chr(final int numForDB, final String str, final boolean isMaleSexChr, final boolean isFemaleSexChr) {
+		this.numForDB = numForDB;
+		this.str = str;
+		this.isMaleSexChr = isMaleSexChr;
+		this.isFemaleSexChr = isFemaleSexChr;
 	}
 	public int getNumForDB() {
 		return numForDB;
@@ -20,21 +29,14 @@ public class Chr {
 		return str;
 	}
 
-	public boolean isSexChr() {
-		if(this.sex == null) {
-			return false;
-		} else {
-			return true;
-		}
-	}
-
 	public boolean isSexChr(Sex sex) {
-		if(this.sex == null || this.sex != sex) {
-			return false;
-		} else {
-			return true;
+		switch (sex) {
+		case Male :  return this.isMaleSexChr;
+		case Female: return this.isFemaleSexChr;
+		default: throw new IllegalArgumentException(); // NEVER REACH HERE
 		}
 	}
+	
 	public String toString() {
 		return "Chr[str:"+str+"/numForDB:"+numForDB+"]";
 	}

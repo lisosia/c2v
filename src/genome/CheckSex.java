@@ -1,5 +1,7 @@
 package genome;
 
+import genome.chr.Sex;
+
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;

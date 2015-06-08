@@ -1,4 +1,4 @@
-package genome;
+package genome.chr;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;

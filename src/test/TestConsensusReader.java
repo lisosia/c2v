@@ -1,7 +1,7 @@
 package test;
 
 import genome.ConsensusReader;
-import genome.Sex;
+import genome.chr.Sex;
 
 import java.io.IOException;
 

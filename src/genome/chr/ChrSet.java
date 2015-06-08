@@ -1,44 +1,18 @@
 package genome.chr;
 
-import genome.Sex;
+import java.util.ArrayList;
 
-import java.util.EnumMap;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.Map;
 
 public class ChrSet {
 	
 	private final String name;
 	private final int normalChrSize;
-	private final EnumSet<SexChr> sexChrs;
-	private final EnumMap<Sex, EnumSet<SexChr>> sexChrsBySex;
-	
-	private final Map<String, Integer> strToInt;
-	private final Map<Integer,String> intToStr;
+	private final ChrSetArg[] chrSetArgs;
 	
 	ChrSet(final String name,int normalChrSize, final ChrSetArg... chrSetArgs ) {
 		this.name = name;
 		this.normalChrSize = normalChrSize;
-		
-		sexChrsBySex = new EnumMap<Sex, EnumSet<SexChr>>(Sex.class);
-		sexChrsBySex.put(Sex.Male,   EnumSet.noneOf(SexChr.class) );
-		sexChrsBySex.put(Sex.Female, EnumSet.noneOf(SexChr.class) );
-		
-		sexChrs = EnumSet.noneOf(SexChr.class);
-		strToInt = new HashMap<String, Integer>();
-		intToStr = new HashMap<Integer,String>();
-		for(ChrSetArg e : chrSetArgs) {
-			sexChrs.add( e.sexChr );
-			strToInt.put( e.sexChr.getStr(), e.numForDB );
-			intToStr.put( e.numForDB, e.sexChr.getStr() );
-			if( e.isMaleSexChr ) {
-				sexChrsBySex.get(Sex.Male  ).add(e.sexChr);
-			}
-			if( e.isFemaleSexChr ) {
-				sexChrsBySex.get(Sex.Female).add(e.sexChr);
-			}
-		}
+		this.chrSetArgs = chrSetArgs;
 	}
 	
 	public String getName() {
@@ -46,6 +20,28 @@ public class ChrSet {
 	}
 	public int getNormalChrSize() {
 		return this.normalChrSize;
+	}
+	
+	public java.util.List<Chr> getNormalChrs() {
+		java.util.List<Chr> ret = new ArrayList<Chr>(normalChrSize+1);
+		for (int i = 1; i <= normalChrSize; i++) {
+			ret.add( getChr(i));
+		}
+		return ret;
+	}
+	
+	public java.util.List<Chr> getSexChrs(final Sex sex) {
+		java.util.List<Chr> ret = new ArrayList<Chr>();
+		for (int i = 0; i < chrSetArgs.length ; i++) {
+			ChrSetArg e = this.chrSetArgs[i];
+			Chr toAdd = new Chr(e.numForDB, e.sexChr.getStr() );
+			if(sex==Sex.Male) {
+				if(e.isMaleSexChr)  {ret.add( toAdd );}
+			} else {
+				if(e.isFemaleSexChr){ret.add( toAdd );}				
+			}
+		}
+		return ret;
 	}
 	
 	public Chr getChr(final int numForDB) {
@@ -60,20 +56,29 @@ public class ChrSet {
 		if( numForDB >= 1 && numForDB <= normalChrSize ) {
 			return Integer.toString(numForDB);
 		} else {
-			String ret = intToStr.get(numForDB);
-			if(ret==null) { throw new IllegalArgumentException("numForDB:"+numForDB+" is invalid"); }
-			return ret;
+			for (int i = 0; i < chrSetArgs.length; i++) {
+				if(chrSetArgs[i].numForDB == numForDB) {
+					return chrSetArgs[i].sexChr.getStr();
+				}
+			}
+			throw new IllegalArgumentException("numForDB:"+numForDB+" is invalid");
 		}
 	}
 
 	private int strToNum(final String str) {
-		Integer ret = strToInt.get(str);
-		if( ret != null ) { return ret; }
-		try{ return Integer.parseInt(str);
+		for (int i = 0; i < chrSetArgs.length; i++) {
+			if(chrSetArgs[i].sexChr.getStr().equals( str )) {
+				return chrSetArgs[i].numForDB;
+			}
+		}
+		try {
+			Integer ret = Integer.parseInt(str);
+			return ret;
 		} catch (NumberFormatException e) {
 			throw new IllegalArgumentException("str:"+str+" is invalid");
 		}
 	}
+
 	
 }
 
