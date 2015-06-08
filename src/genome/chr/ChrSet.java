@@ -34,7 +34,7 @@ public class ChrSet {
 		java.util.List<Chr> ret = new ArrayList<Chr>();
 		for (int i = 0; i < chrSetArgs.length ; i++) {
 			ChrSetArg e = this.chrSetArgs[i];
-			Chr toAdd = new Chr(e.numForDB, e.sexChr.getStr() );
+			Chr toAdd = new Chr(e.numForDB, e.sexChr.getStr(), e.isMaleSexChr,e.isFemaleSexChr );
 			if(sex==Sex.Male) {
 				if(e.isMaleSexChr)  {ret.add( toAdd );}
 			} else {
@@ -48,7 +48,7 @@ public class ChrSet {
 		java.util.List<Chr> ret = new ArrayList<Chr>();
 		for (int i = 0; i < chrSetArgs.length ; i++) {
 			ChrSetArg e = this.chrSetArgs[i];
-			Chr toAdd = new Chr(e.numForDB, e.sexChr.getStr() );
+			Chr toAdd = new Chr(e.numForDB, e.sexChr.getStr(), e.isMaleSexChr,e.isFemaleSexChr );
 			ret.add( toAdd );
 		}
 		return ret;

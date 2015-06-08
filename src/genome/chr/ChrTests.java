@@ -22,10 +22,16 @@ public class ChrTests {
 		System.out.println("TEST3 Male");
 		for (Chr chr : chrs.getSexChrs(Sex.Male) ) {
 			System.out.println(chr);
+			System.out.println(chr.isSexChr());
+			System.out.println(chr.isSexChr(Sex.Male));
+			System.out.println(chr.isSexChr(Sex.Female));
 		}
 		System.out.println("TEST3 Female");
 		for (Chr chr : chrs.getSexChrs(Sex.Female) ) {
 			System.out.println(chr);
+			System.out.println(chr.isSexChr());
+			System.out.println(chr.isSexChr(Sex.Male));
+			System.out.println(chr.isSexChr(Sex.Female));
 		}
 	
 	
