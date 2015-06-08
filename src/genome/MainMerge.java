@@ -31,7 +31,7 @@ public class MainMerge {
 
 		Map<String, ArrayList<String>> id = createList(System.in);
 
-		ManageDB mdb = new ManageDB(configFilePath);
+		ManageDB mdb = new ManageDB(configFilePath, null);
 		if (chrStr.equals("all") ) {
 			for (Chr c : humanChrSet.getNormalChrs() ) {
 				mdb.printDiffByChr(c, id, System.out);				
