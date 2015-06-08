@@ -121,7 +121,7 @@ final public class ManageDB {// Util Class
 		Connection con = getConnection(pid.getRunID());
 		if (checkDataExistance(con, pid.getRunID(), pid.getSampleName(), chr)) {
 			System.err.println("Data[ runID:" + pid.getRunID() + ",sampleName:"
-					+ pid.getSampleName() + "] " + "already exists. check <"
+					+ pid.getSampleName() +"chr:"+ chr +"] " + "already exists. check <"
 					+ DATA_DIR + pid.getRunID() + "> .");
 			System.err.println("");
 			System.exit(1);
@@ -172,6 +172,7 @@ final public class ManageDB {// Util Class
 			// line_ct_per_spilit++;
 			// WRITE
 			//TODO
+			if(lineInfo.altsStr.length() !=1 && lineInfo.altsStr.length() != 3) { continue; }
 			if( !chr.isSexChr() ||
 				 sampleSex == Sex.Female ||
 				 chr.getStr() == "X" && ConsensusReader.isPAR_X(lineInfo.position)
@@ -184,8 +185,8 @@ final public class ManageDB {// Util Class
 					 	!lineInfo.genoType.equals("0/1")    ) { // 0/1のときはmisscall, readFilteredLineしてるのでこの行入らないけど一応
 				// 0b1111 はMerge時に無視される
 				cmpBuf.writeData(lineInfo.position, 
-					0b1111,
-					lineInfo.altsComparedToRef[0] );
+							0b1111,
+							lineInfo.altsComparedToRef[0] );
 			}else { // 染色体Yで(Maleで)PARのときは何もしない.
 			}
 
