@@ -37,7 +37,7 @@ final public class ManageDB {// Util Class
 	final int minimumDP;
 	final String referenceDBPath;
 	CheckSex checkSex;
-	
+
 	/**
 	 * 
 	 * @param configFilePath
@@ -197,7 +197,7 @@ final public class ManageDB {// Util Class
 	}
 	
 	
-	private Connection initDB(String runID) throws ClassNotFoundException,
+	public Connection initDB(String runID) throws ClassNotFoundException,
 			SQLException {
 
 		final String dbPath = DATA_DIR + runID;
