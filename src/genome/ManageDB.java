@@ -354,7 +354,7 @@ final public class ManageDB {// Util Class
 			while (d.readNext(data) != -1) {
 				final int base1 = data[0];
 				final int base2 = data[1];
-				final int posRead = data[3];
+				final int posRead = data[2];
 				if(base1 != 0b1111){
 					ret[4 * (posRead - pos_index) + base1] += 1;
 				}
@@ -470,6 +470,7 @@ class PrintData {
 				absolutePos = pos_index + i;
 				final String[] ACGT = { "A", "C", "G", "T" };
 				int ref_num = rr.readByNumber(absolutePos);
+				assert ref_num != -1;
 				if (ref_num != -1) {
 					alt_A = merged[dx + (4 - ref_num) % 4];
 					alt_C = merged[dx + (4 - ref_num + 1) % 4];
@@ -479,11 +480,13 @@ class PrintData {
 					// String ALTs =:
 					String INFO1 = "AN=" + (alt_total) + ";AC=" + alt_A + ","
 							+ alt_C + "," + alt_G + "," + alt_T + ";";
-					out.printf("chr%s\t%s\t%s\t.\t%s", chr.getStr() , ACGT[ref_num],
+					out.println(";" +absolutePos);
+					out.printf("chr%s\t%d\t%s\t%s\t.\t%s\n", chr.getStr() ,absolutePos , ACGT[ref_num],
 							retAlTsString(alt_A, alt_C, alt_G, alt_T, ref_num),
 							INFO1);
 				} else {
 					// TODO can't compare
+					out.printf("refnum %d, absoltePos %d \n",ref_num,absolutePos);
 					throw new Error("FETAL check source-code");
 				}
 
@@ -509,13 +512,14 @@ class PrintData {
 		if (t != 0) {
 			acgt += 1;
 		}
-		if ((acgt & (0b1000 >> ref)) != 0b0000) {
-			acgt -= 0b1000 >> (ref);
-		} else {
-			throw new Error(
-					"refALTsString , fatal bug when ptinting.\n"
-							+ "reference in consensusfile may not correspong with  the content in referenceDBfile");
+		
+		// AltsString に refに相当する部分はいらない
+		acgt = acgt & (~(0b1000 >> ref));
+		
+		if ( (acgt & (0b1000 >> ref)) == 0 )  {
+			// System.err.println("No allele (only alts) exsits, a,c,g,t,ref;" +a+" "+c+" "+g+" "+t+" "+ref);
 		}
+		
 		switch (acgt) {
 		case 0b0000:return "";
 		case 0b1000:return "A";

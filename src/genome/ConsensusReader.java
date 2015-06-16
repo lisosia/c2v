@@ -171,9 +171,10 @@ public class ConsensusReader {
 				}
 				alts_num = 2; //TODO 暫定処理
 			} else {
+			    alts_num = 3;
 				// NEVER Reach HERE if consensus is correct format
-				throw new IllegalArgumentException("patternMatch failed. " + 
-						"consensus line:\n" + line);
+				// --- Can Reach here
+			        //throw new IllegalArgumentException("patternMatch failed. " +  "consensus line:\n" + line);
 			}
 
 			

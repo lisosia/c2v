@@ -115,7 +115,7 @@ public class ReferenceReader {
 	/**
 	 * 
 	 * @param posision
-	 * @return [ACGT]に対応する[0123], ACGT以外の時は 0123
+	 * @return [ACGT]に対応する[0123], ACGT以外の時は -1
 	 * @throws IOException
 	 * @throws SQLException
 	 */
@@ -129,13 +129,13 @@ public class ReferenceReader {
 		}
 
 		char ref = readFromRef(posision);
-		if (ref == 'A')
+		if (ref == 'a' || ref == 'A')
 			return 0;
-		if (ref == 'C')
+		if (ref == 'c' || ref == 'C')
 			return 1;
-		if (ref == 'G')
+		if (ref == 'g' || ref == 'G')
 			return 2;
-		if (ref == 'T')
+		if (ref == 't' || ref == 'T')
 			return 3;
 		return -1;
 	}
