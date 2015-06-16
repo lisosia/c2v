@@ -11,9 +11,14 @@ public class MainInitDB {
 		final String configFilePath = args[0];
 		final String runID = args[1];
 		try {
-			new ManageDB(configFilePath, null).initDB(runID);
+			final ManageDB MDB = new ManageDB(configFilePath, null);
+			if(MDB.DBexists(runID)) {
+				System.err.println("DB for runID:"+runID+" already exists.");
+				System.exit(-1);
+			} else {
+				MDB.initDB(runID);
+			}
 		} catch (ClassNotFoundException | SQLException | IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
