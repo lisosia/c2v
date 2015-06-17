@@ -28,7 +28,8 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 
 final public class ManageDB {// Util Class
-
+	
+	private static final int SQLITE_TIMEOUT_SEC = 100 * 60;
 	final private String DATA_DIR; // = System.getProperty("user.dir") +
 									// "/etc/data/";
 	final private String TABLE_NAME = "base_data";
@@ -94,7 +95,7 @@ final public class ManageDB {// Util Class
 	public void store(String runID, String sampleID, final Chr chr, String filename)
 			throws ClassNotFoundException, SQLException, IOException {
 		if (dbExist(runID)) {
-			System.err.println("database already exists, start storing");
+			// System.err.println("database already exists, start storing");
 		} else {
 			System.err.println("database not exist. start creating db.");
 			initDB(runID);
@@ -211,7 +212,7 @@ final public class ManageDB {// Util Class
 		// create a database connection
 		connection = DriverManager.getConnection("jdbc:sqlite" + ":" + dbPath);
 		Statement statement = connection.createStatement();
-		statement.setQueryTimeout(30); // set timeout to 30 sec.
+		statement.setQueryTimeout(SQLITE_TIMEOUT_SEC); // set timeout.
 		statement.executeUpdate("drop table if exists " + TABLE_NAME);
 		statement.executeUpdate("create table " + TABLE_NAME + " "
 				+ "(chr integer NOT NULL ," + "pos_index integer NOT NULL ,"
@@ -239,6 +240,7 @@ final public class ManageDB {// Util Class
 	private void storeDB(PreparedStatement ps, String sample_id, int chr,
 			int pos_index, byte[] pos_array, byte[] base_array)
 			throws SQLException {
+		ps.setQueryTimeout(SQLITE_TIMEOUT_SEC);
 		ps.setInt(1, chr);
 		ps.setInt(2, pos_index);
 		ps.setString(3, sample_id);
@@ -264,7 +266,9 @@ final public class ManageDB {// Util Class
 						+ " does not exist.");
 			}
 			Connection con = getConnection(runID);
+			con.setReadOnly(true);
 			PreparedStatement ps = con.prepareStatement(get_pos_indexs);
+			ps.setQueryTimeout(SQLITE_TIMEOUT_SEC);
 			ps.setInt(1, chr.getNumForDB() );
 			ResultSet rs = ps.executeQuery();
 			while (rs.next()) {
@@ -323,6 +327,8 @@ final public class ManageDB {// Util Class
 
 		boolean isFirst = true;
 		Connection con = getConnection(runID);
+		con.setReadOnly(true);
+		
 		for (String id : sampleIDs) {
 			if (!checkDataExistance(con, runID, id, chr)) {
 				throw new Error("[runID,sampleID,chr]:[" + runID + "," + id
@@ -338,6 +344,7 @@ final public class ManageDB {// Util Class
 		sb.append(")");
 		final String sql = sb.toString();
 		PreparedStatement ps = con.prepareStatement(sql);
+		ps.setQueryTimeout(SQLITE_TIMEOUT_SEC);
 		ps.setInt(1, chr.getNumForDB() );
 		ps.setInt(2, pos_index);
 		ResultSet rs = ps.executeQuery();
@@ -382,6 +389,7 @@ final public class ManageDB {// Util Class
 		String sql = "select * from " + TABLE_NAME + " where sample_id = ?";
 		// Connection con = getConnection(runID);
 		PreparedStatement ps = con.prepareStatement(sql);
+		ps.setQueryTimeout(SQLITE_TIMEOUT_SEC);
 		ps.setString(1, sampleID);
 		ResultSet rs = ps.executeQuery();
 		return rs.next();
@@ -393,6 +401,7 @@ final public class ManageDB {// Util Class
 				+ " where chr = ? and sample_id = ? ";
 		// Connection con = getConnection(runID);
 		PreparedStatement ps = con.prepareStatement(sql);
+		ps.setQueryTimeout(SQLITE_TIMEOUT_SEC);
 		ps.setInt(1, chr.getNumForDB() );
 		ps.setString(2, sampleID);
 		ResultSet rs = ps.executeQuery();

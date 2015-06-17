@@ -38,11 +38,19 @@ def return_line_alt(chr,pos)
   return  "chr#{chr}\t#{pos}\t.\t#{mk_ref_and_alts()}\t#{mk_qual()}\t.\t#{mk_info()}\tPL\tBAM_INFO"
 end
 
-$CHR=12
-last = ARGV[0].to_i
+if ARGV.length() != 2
+  puts "arg1 CHR(str), arg2 position_num"
+  exit
+end
+
+$CHR= ARGV[0]
+last = ARGV[1].to_i
 for pos in 1...last
   
-  next if rand() > GET_SAMPLE_PROB
+  if rand() > GET_SAMPLE_PROB
+    $REF_RAND.rand(4)
+    next
+  end
   if rand() > ALT_PROB
     puts return_line_norm( $CHR,pos )
   else

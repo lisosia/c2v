@@ -18,7 +18,7 @@ import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorOutputStream;
 
 final public class GenomeDataStoreUtil {
-
+	private static final int STORE_TIMEOUT_MS = 100 * 60 * 1000;
 	public static final class PersonalID { // GenomeData特定用ID, 不変クラス
 		private final String runID;
 		private final String sampleID;
@@ -64,6 +64,7 @@ final public class GenomeDataStoreUtil {
 		public void StoreDB(String tableName) throws SQLException, IOException {
 			String sql = "INSERT INTO " + tableName + " VALUES(?,?,?,?,?)";
 			PreparedStatement ps = this.con.prepareStatement(sql);
+			ps.setQueryTimeout(STORE_TIMEOUT_MS);
 			ps.setInt(1, chr.getNumForDB() );
 			ps.setInt(2, this.pos_index);
 			ps.setString(3, pid.getSampleName());
