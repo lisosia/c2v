@@ -77,6 +77,7 @@ final public class ManageDB {// Util Class
 				//TODO
 				if(br!=null){ br.close(); }
 			} catch (IOException e) {
+				e.printStackTrace();
 				throw new RuntimeException(
 						"IOException while closing .configfile", e);
 			}
@@ -193,7 +194,7 @@ final public class ManageDB {// Util Class
 				// after store, should reset buffers, and update pos_index
 				isFirst = true;
 				//一気に DATA_SPLIT_UNIT以上 consensusfileのpositionが"歯抜け"の時もありうるのでこのような処理
-				while(lineInfo.position < pos_index_forDB + DATA_SPLIT_UNIT) {
+				while(lineInfo.position >= pos_index_forDB + DATA_SPLIT_UNIT) {
 					pos_index_forDB += DATA_SPLIT_UNIT;
 				}
 				cmpBuf.resetBuffer(pos_index_forDB);
