@@ -39,7 +39,7 @@ public class ConsensusReader {
 		while ((line = br.readLine()) != null && !line.equals("")) {
 			if(line.charAt(0)=='#'){continue;} // comment in consensus file
 			if (!lineInfo.parseLine(line)) {
-				// TODO いまのところ false を返すのは INDEL の時のみ
+				// TODO false を返すのは INDEL or ref=="N" の時, 不正なので読み飛ばす
 				continue;
 			}
 			
@@ -132,6 +132,7 @@ public class ConsensusReader {
 			this.chr = m.group(1);
 			this.position = Integer.parseInt(m.group(2));
 			String ref = m.group(3);
+			if(ref.equals("N")) {return false;}
 			this.altsStr = m.group(4);
 			this.qual = Float.parseFloat(m.group(5));
 			String info = m.group(6);
@@ -195,7 +196,7 @@ public class ConsensusReader {
 
 		public boolean isReliable() {
 			if (!this.isIndel && qual >= this.minimumQual
-					&& dp >= this.minimumDP) {
+					&& dp >= this.minimumDP ) {
 				return true;
 			} else {
 				return false;

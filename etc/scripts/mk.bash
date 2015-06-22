@@ -1,10 +1,11 @@
 #!/bin/bash
 pos_max=1000000000 #10M * 100, mk_consensu makes pos_max/100 = 10M line
 prefix="10M_"
-for i in $(seq 0 10)
+chr="2"
+for i in $(seq 0 2)
 do
     
-file="../consensus_data/$prefix$i"    
+file="../consensus_data/${prefix}_${i}_chr${chr}"    
 if [ -e $file ]; then
     echo "$file already exists"
 else

@@ -5,8 +5,6 @@ import genome.chr.Chr;
 import genome.chr.ChrSet;
 import genome.chr.ChrSetFactory;
 
-import java.io.IOException;
-
 public class TestStore {
 	/**
 	 * 
@@ -38,8 +36,8 @@ public class TestStore {
 
 			}
 
-		} catch (IOException e) {
-			e.printStackTrace();
+		} finally  {
+			
 		}
 
 		long t1 = System.nanoTime();

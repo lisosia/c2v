@@ -62,14 +62,14 @@ final public class GenomeDataStoreUtil {
 
 		// TODO sql insert( , , ,) values( , , , )に変える
 		public void StoreDB(String tableName) throws SQLException, IOException {
-			String sql = "INSERT INTO " + tableName + " VALUES(?,?,?,?,?)";
+			String sql = "INSERT INTO " + tableName + " VALUES(?,?,?,?)";
 			PreparedStatement ps = this.con.prepareStatement(sql);
 			ps.setQueryTimeout(STORE_TIMEOUT_MS);
 			ps.setInt(1, chr.getNumForDB() );
-			ps.setInt(2, this.pos_index);
-			ps.setString(3, pid.getSampleName());
-			ps.setBytes(4, this.posBuf.toByteArray());
-			ps.setBytes(5, this.baseBuf.toByteArray());
+			ps.setInt(1, this.pos_index);
+			ps.setString(2, pid.getSampleName());
+			ps.setBytes(3, this.posBuf.toByteArray());
+			ps.setBytes(4, this.baseBuf.toByteArray());
 
 			// TODO executeだけして　updateは後で良い?
 			ps.executeUpdate();

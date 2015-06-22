@@ -66,12 +66,12 @@ final public class ManageDB {// Util Class
 			minimumDP = Integer.parseInt(br.readLine());
 			referenceDBPath = br.readLine();
 
-			System.err.println(">>> read configfile: " + CONFIG_FILENAME
+			/*System.err.println(">>> read configfile: " + CONFIG_FILENAME
 					+ "\noutputDBfileDir: " + DATA_DIR + "\nDATA_SPLIT_UNIT: "
 					+ DATA_SPLIT_UNIT
 					+ "\n<minimumQV(double), minimumDP(int)>:" + "<"
 					+ minimumQual + ", " + minimumDP + ">"
-					+ "\ngenomeReference file path: " + referenceDBPath + "\n");
+					+ "\ngenomeReference file path: " + referenceDBPath + "\n");*/
 		} finally {
 			try {
 				//TODO
@@ -93,33 +93,59 @@ final public class ManageDB {// Util Class
 	 */
 
 	public void store(String runID, String sampleID, final Chr chr, String filename)
-			throws ClassNotFoundException, SQLException, IOException {
-		if (dbExist(runID)) {
+	{
+		if (dbExists(runID, chr)) {
 			// System.err.println("database already exists, start storing");
 		} else {
 			System.err.println("database not exist. start creating db.");
-			initDB(runID);
+			try {
+				initDB(runID, chr);
+			}catch(Exception e){
+				System.err.println("Error Init DB");
+				System.err.println("ExitProgram before processing");
+				System.exit(1);
+			}
 		}
 
 		System.err.println("Storing...[runID:" + runID + ",sampleID:"
 				+ sampleID + ",chr:" + chr + "]");
 		long t0 = System.nanoTime();
-		parseAndStoreDB(new PersonalID(runID, sampleID), chr, filename);
+		final PersonalID pid = new PersonalID(runID, sampleID);
+		try{
+			parseAndStoreDB( pid, chr, filename);
+		}catch (Exception e) {
+			System.err.print("error when storing runID,sampleID,chr:"
+					+ pid.getRunID()+","+pid.getSampleName()+","+chr);
+			if (removeDBData(pid, chr) ) {
+				System.err.println(" Removed the data");
+			} else {
+				System.err.println(" Failed to removed the data");				
+			}
+		}
 		long t1 = System.nanoTime();
 		System.err.println("Store fin, " + (t1 - t0)
 				/ (1000 * 1000 * 1000 + 0.0) + " sec passed");
 
 	}
-
-	private boolean dbExist(String runID) {
-		return (new File(DATA_DIR + runID).exists());
+	
+	private boolean removeDBData(final PersonalID pid, Chr chr) 
+	{
+		try {
+			Connection con = getConnection(pid.getRunID(), chr);
+			PreparedStatement ps = con.prepareStatement("remove * from " + TABLE_NAME + " where sample_id = ?");
+			ps.setString(1, pid.getSampleName());
+			ps.executeUpdate();			
+		} catch (Exception e) {
+			return false;
+		}
+		return true;
 	}
-
+	
 	private void parseAndStoreDB(PersonalID pid, final Chr chr, String filename)
 			throws SQLException, ClassNotFoundException, IOException {
 		// TODO primary制約にひっかかってエラーが出たら、それをキャッチしてクライアントに伝える
 
-		Connection con = getConnection(pid.getRunID());
+		Connection con = getConnection(pid.getRunID(), chr);
 		if (checkDataExistance(con, pid.getRunID(), pid.getSampleName(), chr)) {
 			System.err.println("Data[ runID:" + pid.getRunID() + ",sampleName:"
 					+ pid.getSampleName() +"chr:"+ chr +"] " + "already exists. check <"
@@ -166,7 +192,10 @@ final public class ManageDB {// Util Class
 				cmpBuf.StoreDB(TABLE_NAME);
 				// after store, should reset buffers, and update pos_index
 				isFirst = true;
-				pos_index_forDB += DATA_SPLIT_UNIT;
+				//一気に DATA_SPLIT_UNIT以上 consensusfileのpositionが"歯抜け"の時もありうるのでこのような処理
+				while(lineInfo.position < pos_index_forDB + DATA_SPLIT_UNIT) {
+					pos_index_forDB += DATA_SPLIT_UNIT;
+				}
 				cmpBuf.resetBuffer(pos_index_forDB);
 			}
 
@@ -198,10 +227,10 @@ final public class ManageDB {// Util Class
 	}
 	
 	
-	public Connection initDB(String runID) throws ClassNotFoundException,
+	public Void initDB(String runID, Chr chr) throws ClassNotFoundException,
 			SQLException {
 
-		final String dbPath = DATA_DIR + runID;
+		final String dbPath = getDBFilePath(runID, chr);
 		try {
 			Class.forName("org.sqlite.JDBC");
 		} catch (ClassNotFoundException e) {
@@ -215,22 +244,31 @@ final public class ManageDB {// Util Class
 		statement.setQueryTimeout(SQLITE_TIMEOUT_SEC); // set timeout.
 		statement.executeUpdate("drop table if exists " + TABLE_NAME);
 		statement.executeUpdate("create table " + TABLE_NAME + " "
-				+ "(chr integer NOT NULL ," + "pos_index integer NOT NULL ,"
-				+ "sample_id TEXT NOT NULL ," + "pos_array blob NOT NULL ,"
+				// "(chr integer NOT NULL ," +  chrごとで、ファイルで分割することに
+				+ "(pos_index integer NOT NULL ,"
+				+ "sample_id TEXT NOT NULL ," 
+				+ "pos_array blob NOT NULL ,"
 				+ "base_array blob NOT NULL ,"
-				+ "primary key(sample_id, chr, pos_index) )");
-		return connection;
+				+ "primary key(sample_id, pos_index) )"); // removed "chr,"
+		statement.executeUpdate("CREATE UNIQUE INDEX uniqindex on base_data(pos_index,sample_id)");
+								
+		connection.close();
+		return null;
 	}
 
-	boolean DBexists(String runID) {
-		final String dbPath = DATA_DIR + runID;
+	boolean dbExists(String runID, Chr chr) {
+		final String dbPath = getDBFilePath(runID, chr);
 		boolean ret = new File(dbPath).exists();
 		return ret;
 	}
+	
+	String getDBFilePath(String runID, Chr chr) {
+		return DATA_DIR + runID + ".chr" + chr.getStr();
+	}
 
-	Connection getConnection(String runID) throws SQLException,
+	Connection getConnection(String runID, Chr chr) throws SQLException,
 			ClassNotFoundException {
-		final String dbPath = DATA_DIR + runID;
+		final String dbPath = getDBFilePath(runID, chr);
 		Connection con = DriverManager.getConnection("jdbc:sqlite" + ":"
 				+ dbPath);
 		return con;
@@ -241,11 +279,11 @@ final public class ManageDB {// Util Class
 			int pos_index, byte[] pos_array, byte[] base_array)
 			throws SQLException {
 		ps.setQueryTimeout(SQLITE_TIMEOUT_SEC);
-		ps.setInt(1, chr);
-		ps.setInt(2, pos_index);
-		ps.setString(3, sample_id);
-		ps.setBytes(4, pos_array);
-		ps.setBytes(5, base_array);
+		//ps.setInt(1, chr);
+		ps.setInt(1, pos_index);
+		ps.setString(2, sample_id);
+		ps.setBytes(3, pos_array);
+		ps.setBytes(4, base_array);
 		ps.executeUpdate();
 	}
 
@@ -257,19 +295,20 @@ final public class ManageDB {// Util Class
 	 */
 	private SortedSet<Integer> getExistingPosIndex(Chr chr, Set<String> runIDs)
 			throws ClassNotFoundException, SQLException {
-		String get_pos_indexs = "select distinct pos_index from " + TABLE_NAME
-				+ " where chr = ?";
+		String get_pos_indexs = "select distinct pos_index from " + TABLE_NAME;
 		SortedSet<Integer> ret = new TreeSet<Integer>();
 		for (String runID : runIDs) {
-			if (!DBexists(runID)) {
-				throw new Error("DBfile for runID:" + runID
+			if (!dbExists(runID, chr)) {
+				throw new Error("DBfile for runID,chr:" + runID +"," +chr
 						+ " does not exist.");
 			}
-			Connection con = getConnection(runID);
-			con.setReadOnly(true);
+			Connection con = getConnection(runID, chr);
+			// con.setReadOnly(true);
+			//TODO cannot set readonly flag after establishing a connection use sqliteConfig#setReadOnly
+			// and SQLiteConfig.createConnection().
 			PreparedStatement ps = con.prepareStatement(get_pos_indexs);
 			ps.setQueryTimeout(SQLITE_TIMEOUT_SEC);
-			ps.setInt(1, chr.getNumForDB() );
+			// ps.setInt(1, chr.getNumForDB() );   REMOVED
 			ResultSet rs = ps.executeQuery();
 			while (rs.next()) {
 				ret.add(rs.getInt("pos_index"));
@@ -323,11 +362,11 @@ final public class ManageDB {// Util Class
 					+ "] 's size == 0");
 		}
 		StringBuilder sb = new StringBuilder("select * from " + TABLE_NAME
-				+ " where chr = ? and pos_index = ? and sample_id in (");
+				+ " where pos_index = ? and sample_id in (");
 
 		boolean isFirst = true;
-		Connection con = getConnection(runID);
-		con.setReadOnly(true);
+		Connection con = getConnection(runID, chr);
+		//con.setReadOnly(true);
 		
 		for (String id : sampleIDs) {
 			if (!checkDataExistance(con, runID, id, chr)) {
@@ -345,8 +384,8 @@ final public class ManageDB {// Util Class
 		final String sql = sb.toString();
 		PreparedStatement ps = con.prepareStatement(sql);
 		ps.setQueryTimeout(SQLITE_TIMEOUT_SEC);
-		ps.setInt(1, chr.getNumForDB() );
-		ps.setInt(2, pos_index);
+		//ps.setInt(1, chr.getNumForDB() ); REMOVED
+		ps.setInt(1, pos_index);
 		ResultSet rs = ps.executeQuery();
 
 		int[] ret = new int[4 * DATA_SPLIT_UNIT];
@@ -362,10 +401,18 @@ final public class ManageDB {// Util Class
 				final int base1 = data[0];
 				final int base2 = data[1];
 				final int posRead = data[2];
+				try{
+					
 				if(base1 != 0b1111){
 					ret[4 * (posRead - pos_index) + base1] += 1;
 				}
 				ret[4 * (posRead - pos_index) + base2] += 1;
+				
+				}catch (ArrayIndexOutOfBoundsException e){
+					System.err.println("pos_index,posread,base1,base2:"+pos_index+","
+							+posRead+","+base1+","+base2);
+					throw new RuntimeException("array index outofBounds",e);
+				}
 			}
 			
 		}
@@ -398,12 +445,12 @@ final public class ManageDB {// Util Class
 	boolean checkDataExistance(Connection con, String runID, String sampleID,
 			Chr chr) throws SQLException {
 		String sql = "select * from " + TABLE_NAME
-				+ " where chr = ? and sample_id = ? ";
+				+ " where sample_id = ? ";
 		// Connection con = getConnection(runID);
 		PreparedStatement ps = con.prepareStatement(sql);
 		ps.setQueryTimeout(SQLITE_TIMEOUT_SEC);
-		ps.setInt(1, chr.getNumForDB() );
-		ps.setString(2, sampleID);
+		//ps.setInt(1, chr.getNumForDB() );
+		ps.setString(1, sampleID);
 		ResultSet rs = ps.executeQuery();
 		return rs.next();
 	}
@@ -420,11 +467,11 @@ final public class ManageDB {// Util Class
 		// PersonalID pid = new PersonalID(runID,sampleID);
 
 		String sql = "select * from " + TABLE_NAME
-				+ " where chr = ? and sample_id = ?";
-		Connection con = getConnection(runID);
+				+ " where sample_id = ?"; // removed "chr = ? and" 
+		Connection con = getConnection(runID, chr_to_print);
 		PreparedStatement ps = con.prepareStatement(sql);
-		ps.setInt(1, chr_to_print.getNumForDB() );
-		ps.setString(2, sampleID);
+		//ps.setInt(1, chr_to_print.getNumForDB() );
+		ps.setString(1, sampleID);
 		ResultSet rs = ps.executeQuery();
 
 		int count = 0;
@@ -489,14 +536,17 @@ class PrintData {
 					// String ALTs =:
 					String INFO1 = "AN=" + (alt_total) + ";AC=" + alt_A + ","
 							+ alt_C + "," + alt_G + "," + alt_T + ";";
-					out.println(";" +absolutePos);
+					//out.println(";" +absolutePos);
 					out.printf("chr%s\t%d\t%s\t%s\t.\t%s\n", chr.getStr() ,absolutePos , ACGT[ref_num],
 							retAlTsString(alt_A, alt_C, alt_G, alt_T, ref_num),
 							INFO1);
 				} else {
 					// TODO can't compare
+					// SKIP!!!!!!!!!!!!!!!!
+					/*
 					out.printf("refnum %d, absoltePos %d \n",ref_num,absolutePos);
 					throw new Error("FETAL check source-code");
+					*/
 				}
 
 			}

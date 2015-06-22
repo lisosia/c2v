@@ -1,5 +1,9 @@
 package genome;
 
+import genome.chr.Chr;
+import genome.chr.ChrSet;
+import genome.chr.ChrSetFactory;
+
 import java.io.IOException;
 import java.sql.SQLException;
 
@@ -12,12 +16,14 @@ public class MainInitDB {
 		final String runID = args[1];
 		try {
 			final ManageDB MDB = new ManageDB(configFilePath, null);
-			if(MDB.DBexists(runID)) {
-				System.err.println("DB for runID:"+runID+" already exists.");
-				System.exit(-1);
-			} else {
-				MDB.initDB(runID);
+			final ChrSet humanChrSet = ChrSetFactory.getHumanChrSet();
+			for(Chr chr: humanChrSet.getNormalChrs()) {
+				if(!MDB.dbExists(runID, chr)) {MDB.initDB(runID, chr);}
 			}
+			for(Chr chr: humanChrSet.getSexChrs() ) {
+				if(!MDB.dbExists(runID, chr)) {MDB.initDB(runID, chr);}
+			}
+			
 		} catch (ClassNotFoundException | SQLException | IOException e) {
 			e.printStackTrace();
 		}
