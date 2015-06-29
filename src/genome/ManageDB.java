@@ -169,6 +169,8 @@ final public class ManageDB {// Util Class
 		ConsensusReader.ConsensusLineInfo lineInfo = new ConsensusReader.ConsensusLineInfo(
 				minimumQual, minimumDP);
 		Sex sampleSex = checkSex.getSex(pid.getSampleName());
+		System.err.println(pid.getSampleName() +"is "+ sampleSex.name() );
+		if( chr.getStr().equals("Y") && sampleSex==Sex.Female) { return ;} // DO nothing
 		ConsensusReader consensusReader = new ConsensusReader(filename,sampleSex, chr );
 
 		while (true) {
@@ -213,18 +215,20 @@ final public class ManageDB {// Util Class
 			if(lineInfo.altsStr.length() !=1 && lineInfo.altsStr.length() != 3) { continue; }
 			if( !chr.isSexChr() ||
 				 sampleSex == Sex.Female ||
-				 chr.getStr() == "X" && ConsensusReader.isPAR_X(lineInfo.position)
+				 chr.getStr().equals("X") && ConsensusReader.isPAR_X(lineInfo.position)
 				 //ACGT １つだが、Yの文も含めて２つ分数える
 			  ) {
 				cmpBuf.writeData(lineInfo.position,
 						lineInfo.altsComparedToRef[0],
 						lineInfo.altsComparedToRef[1]);
-			} else if( !( chr.getStr() == "Y" && ConsensusReader.isPAR_Y(lineInfo.position) ) && //つまり男性,XY,非PAR
+			} else if( !( chr.getStr().equals("Y") && ConsensusReader.isPAR_Y(lineInfo.position) ) && //つまり男性,XY,非PAR
 					 	!lineInfo.genoType.equals("0/1")    ) { // 0/1のときはmisscall, readFilteredLineしてるのでこの行入らないけど一応
 				// 0b1111 はMerge時に無視される
 				cmpBuf.writeData(lineInfo.position, 
 							0b1111,
 							lineInfo.altsComparedToRef[0] );
+				System.err.println("AbORT, ");
+				System.exit(1);
 			}else { // 染色体Yで(Maleで)PARのときは何もしない.
 			}
 
@@ -350,11 +354,11 @@ final public class ManageDB {// Util Class
 	int[] getMergedData(Chr chr, Map<String, ArrayList<String>> id,
 			int pos_index) throws IOException, SQLException,
 			ClassNotFoundException {
-		int[] ret = new int[4 * DATA_SPLIT_UNIT];
+		int[] ret = new int[MergeArrayFormat.SIZE_PER_BASE * (DATA_SPLIT_UNIT+1)];
 		for (String runID : id.keySet()) {
-			int[] mergedByRunID = getMergedDataByRunID(chr, runID,
-					id.get(runID), pos_index);
-			for (int i = 0; i < ret.length; i++) {
+			int[] mergedByRunID = getMergedDataByRunID(chr, runID, id.get(runID), pos_index);
+			assert( ret.length == mergedByRunID.length );
+			for (int i = 0; i < mergedByRunID.length; i++) {
 				ret[i] += mergedByRunID[i];
 			}
 			mergedByRunID = null; // GCを期待
@@ -397,7 +401,7 @@ final public class ManageDB {// Util Class
 		ps.setInt(1, pos_index);
 		ResultSet rs = ps.executeQuery();
 
-		int[] ret = new int[4 * (DATA_SPLIT_UNIT+1)];
+		int[] ret = new int[ MergeArrayFormat.SIZE_PER_BASE * (DATA_SPLIT_UNIT+1)];  //AA,AC,...,TT, _A,_B,_C,_T, isALT
 		int gotIdNum = 0;
 		while (rs.next()) {
 			gotIdNum += 1;
@@ -412,14 +416,21 @@ final public class ManageDB {// Util Class
 			while (d.readNext(data) != -1) {
 				final int base1 = data[0];
 				final int base2 = data[1];
+				if(base1==0b1111 || base2==0b1111) {System.err.println(" "+base1+" "+ base2 +" " + data[2]);System.exit(1);}
 				final int posRead = data[2];
 				try{
+					final int BASE_DX =  MergeArrayFormat.SIZE_PER_BASE * (posRead - pos_index);
+					if( (base1 != 0 && base1!=0b1111) || base2 != 0 ) {
+						ret[BASE_DX + MergeArrayFormat.IS_ALT_DX] = 1;//flag for !=ref
+					}
+					if(base1 != 0b1111){
+						ret[ BASE_DX + MergeArrayFormat.getSubIndex(base1, base2) ] += 1;
+						ret[BASE_DX + MergeArrayFormat.TOTAL_AN_DX] += 2;
+					} else {
+						ret[ BASE_DX + MergeArrayFormat.getSubIndex(base1, base2) ] += 1; // same
+						ret[BASE_DX + MergeArrayFormat.TOTAL_AN_DX] += 1;
+					}
 					
-				if(base1 != 0b1111){
-					ret[4 * (posRead - pos_index) + base1] += 1;
-				}
-				ret[4 * (posRead - pos_index) + base2] += 1;
-				
 				}catch (ArrayIndexOutOfBoundsException e){
 					System.err.println("pos_index,posread,base1,base2:"+pos_index+","
 							+posRead+","+base1+","+base2);
@@ -428,6 +439,7 @@ final public class ManageDB {// Util Class
 			}
 			
 		}
+		
 		if(gotIdNum != sampleIDs.size() ){ throw new IllegalArgumentException("Warning: DBファイル内に,要求されたすべてのサンプルIDが含まれていません"); }
 		con.close();
 		return ret;
@@ -498,6 +510,7 @@ final public class ManageDB {// Util Class
 			while (base_buf.readNextBaseDiff(base_ret) != -1
 					&& (ret_pos = pos_buf.readNextPos()) != -1) {
 				System.out.println("  ------   ");
+				if(base_ret[0]!=0 || base_ret[1]!=0) {System.out.print("!");}
 				System.out.println(ret_pos);
 				System.out.println(base_ret[0]);
 				System.out.println(base_ret[1]);
@@ -512,6 +525,24 @@ final public class ManageDB {// Util Class
 
 }
 
+class MergeArrayFormat {
+	private MergeArrayFormat(){}
+	static final int SIZE_PER_BASE  = 22;
+	static final int NO_DATA_BASENUM = 0b1111;
+	static final int IS_ALT_DX = 20;
+	static final int TOTAL_AN_DX = 21;
+	static int getSubIndex(int base1, int base2) {
+		if(base1 == NO_DATA_BASENUM) {
+			
+			System.err.println("asdasdasdasdas");
+			System.exit(1);
+			return 4* 4 + base2;
+		} else {
+			return 4* base1 + base2;
+		}
+	}
+}
+
 class PrintData {
 	private Chr chr;
 	ReferenceReader rr;
@@ -524,34 +555,48 @@ class PrintData {
 
 	void printMergedData(int[] merged, int pos_index, PrintStream out)
 			throws IOException, SQLException {
-		if (merged.length % 4 != 0) {
+		if (merged.length % MergeArrayFormat.SIZE_PER_BASE != 0) {
 			throw new IllegalArgumentException(
 					"arg<merged> 's format is incorrect");
 		}
-		for (int i = 0; i < merged.length / 4; ++i) {
-			int dx = i * 4;
+		for (int i = 0; i < merged.length / MergeArrayFormat.SIZE_PER_BASE; ++i) {
+			int base_dx = MergeArrayFormat.SIZE_PER_BASE * i;
 			int absolutePos;
-			int alt_A, alt_C, alt_G, alt_T, alt_total;
-			if (merged[dx + 1] != 0 || merged[dx + 2] != 0
-					|| merged[dx + 3] != 0) {
+			if (merged[base_dx + MergeArrayFormat.IS_ALT_DX] != 0) {
 
 				absolutePos = pos_index + i;
-				final String[] ACGT = { "A", "C", "G", "T" };
+				final String[] ACGT = { "A", "C", "G", "T"};
 				int ref_num = rr.readByNumber(absolutePos);
 				assert ref_num != -1;
 				if (ref_num != -1) {
-					alt_A = merged[dx + (4 - ref_num) % 4];
-					alt_C = merged[dx + (4 - ref_num + 1) % 4];
-					alt_G = merged[dx + (4 - ref_num + 2) % 4];
-					alt_T = merged[dx + (4 - ref_num + 3) % 4];
-					alt_total = alt_A + alt_C + alt_G + alt_T;
-					// String ALTs =:
-					String INFO1 = "AN=" + (alt_total) + ";AC=" + alt_A + ","
-							+ alt_C + "," + alt_G + "," + alt_T + ";";
+					int size1 = 5;
+					int size2 = 4; //size1*size2 < SIZE_PER_BASE
+					String INFO2 = "";
+					String ALTS_STR = "";
+					for(int l = 0; l< size1*size2; ++l) {
+						int b_num = merged[base_dx + l];
+						int base1 = l / 4;
+						int base2 = l % 4;
+						if(l==0){continue;}
+						
+						if(b_num !=0) {
+							if(INFO2.length() != 0) {
+								INFO2 += ","; ALTS_STR += ",";
+							}
+							final String base1Str = (base1>=4)? "x" : ACGT[(base1+ref_num)%4];
+							final String base2Str = ACGT[(base2+ref_num)%4];
+							INFO2 += b_num;
+							ALTS_STR += (base1Str + base2Str);
+						}
+					}
+					if(ALTS_STR.equals("") ) { throw new IllegalArgumentException("internal error. no alts");}
+
+					int alt_total = merged[base_dx + MergeArrayFormat.TOTAL_AN_DX];
+					String INFO = "AN=" + (alt_total) + ";GC=" + INFO2;
 					//out.println(";" +absolutePos);
-					out.printf("chr%s\t%d\t%s\t%s\t.\t%s\n", chr.getStr() ,absolutePos , ACGT[ref_num],
-							retAlTsString(alt_A, alt_C, alt_G, alt_T, ref_num),
-							INFO1);
+					out.printf("chr%s\t%d\t%s\t%s\t.\t.\t%s\n", chr.getStr() ,absolutePos , ACGT[ref_num],
+							ALTS_STR,
+							INFO);
 				} else {
 					// TODO can't compare
 					// SKIP!!!!!!!!!!!!!!!!
