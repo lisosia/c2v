@@ -128,7 +128,7 @@ final public class ManageDB {// Util Class
 		}
 		long t1 = System.nanoTime();
 		System.err.println("Store fin, " + (t1 - t0)
-				/ (1000 * 1000 * 1000 + 0.0) + " sec passed");
+				/ (1000 * 1000 * 1000 + 0.0) + " sec passed. "+runID+","+sampleID+","+chr);
 
 	}
 	
@@ -197,10 +197,14 @@ final public class ManageDB {// Util Class
 				// after store, should reset buffers, and update pos_index
 				isFirst = true;
 				//一気に DATA_SPLIT_UNIT以上 consensusfileのpositionが"歯抜け"の時もありうるのでこのような処理
+				//もし歯抜けときは、空の（＝ compBuf.write をしていない） record を書き込む（resetBuffer -> Storeの流れ）
+				boolean isFirstLoop = true;
 				while(lineInfo.position > pos_index_forDB + DATA_SPLIT_UNIT) {
+					if(! isFirstLoop) { cmpBuf.StoreDB(TABLE_NAME); }
 					pos_index_forDB += DATA_SPLIT_UNIT;
+					cmpBuf.resetBuffer(pos_index_forDB);
+					isFirstLoop = false;
 				}
-				cmpBuf.resetBuffer(pos_index_forDB);
 			}
 
 			// line_ct_per_spilit++;
@@ -320,8 +324,8 @@ final public class ManageDB {// Util Class
 		}
 		if (ret.size() == 0) {
 			throw new IllegalArgumentException("runIDs(chr=" + chr
-					+ ") has no record! check inputs/DB. "
-					+ "terminate process");
+					+ ") has no record! check DB file. "
+					+ "terminate this process");
 		}
 		return ret;
 	}
@@ -365,6 +369,7 @@ final public class ManageDB {// Util Class
 			throw new IllegalArgumentException("sampleIDs[of " + runID
 					+ "] 's size == 0");
 		}
+		if(! dbExists(runID, chr) ) {throw new IllegalArgumentException("DB does not exist. runID,chr:"+runID+","+chr);}
 		StringBuilder sb = new StringBuilder("select * from " + TABLE_NAME
 				+ " where pos_index = ? and sample_id in (");
 
@@ -393,9 +398,12 @@ final public class ManageDB {// Util Class
 		ResultSet rs = ps.executeQuery();
 
 		int[] ret = new int[4 * (DATA_SPLIT_UNIT+1)];
+		int gotIdNum = 0;
 		while (rs.next()) {
+			gotIdNum += 1;
+			final String gotID = rs.getString("sample_id");
 			System.err.println("merging   sample_id:"
-					+ rs.getString("sample_id") + " pos_index:"
+					+ gotID + " pos_index:"
 					+ String.valueOf(pos_index));
 			PersonalGenomeDataDecompressor d = new PersonalGenomeDataDecompressor(
 					rs.getBytes("pos_array"), rs.getBytes("base_array"));
@@ -420,7 +428,7 @@ final public class ManageDB {// Util Class
 			}
 			
 		}
-
+		if(gotIdNum != sampleIDs.size() ){ throw new IllegalArgumentException("Warning: DBファイル内に,要求されたすべてのサンプルIDが含まれていません"); }
 		con.close();
 		return ret;
 	}
