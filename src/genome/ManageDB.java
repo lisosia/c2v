@@ -117,11 +117,14 @@ final public class ManageDB {// Util Class
 		}catch (Exception e) {
 			System.err.print("error when storing runID,sampleID,chr:"
 					+ pid.getRunID()+","+pid.getSampleName()+","+chr);
+			System.err.println("printStacktrace:");
+			e.printStackTrace();
 			if (removeDBData(pid, chr) ) {
 				System.err.println(" Removed the data");
 			} else {
 				System.err.println(" Failed to removed the data");				
 			}
+			throw new RuntimeException("store failed", e);
 		}
 		long t1 = System.nanoTime();
 		System.err.println("Store fin, " + (t1 - t0)
@@ -186,7 +189,7 @@ final public class ManageDB {// Util Class
 				isFirst = false;
 			}
 
-			if (lineInfo.position >= pos_index_forDB + DATA_SPLIT_UNIT) { // data
+			if (lineInfo.position > pos_index_forDB + DATA_SPLIT_UNIT) { // data
 																			// spilit
 				// line_ct_per_spilit = 0;
 				// STORING
@@ -194,7 +197,7 @@ final public class ManageDB {// Util Class
 				// after store, should reset buffers, and update pos_index
 				isFirst = true;
 				//一気に DATA_SPLIT_UNIT以上 consensusfileのpositionが"歯抜け"の時もありうるのでこのような処理
-				while(lineInfo.position >= pos_index_forDB + DATA_SPLIT_UNIT) {
+				while(lineInfo.position > pos_index_forDB + DATA_SPLIT_UNIT) {
 					pos_index_forDB += DATA_SPLIT_UNIT;
 				}
 				cmpBuf.resetBuffer(pos_index_forDB);
@@ -389,7 +392,7 @@ final public class ManageDB {// Util Class
 		ps.setInt(1, pos_index);
 		ResultSet rs = ps.executeQuery();
 
-		int[] ret = new int[4 * DATA_SPLIT_UNIT];
+		int[] ret = new int[4 * (DATA_SPLIT_UNIT+1)];
 		while (rs.next()) {
 			System.err.println("merging   sample_id:"
 					+ rs.getString("sample_id") + " pos_index:"

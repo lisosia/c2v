@@ -89,7 +89,7 @@ public class ConsensusReader {
 		final static Pattern pattern = Pattern.compile(
 				"chr(\\S+)\\t" //1: CHR
 				+ "(\\d+)\\t" // 2: POS
-				+ "\\.\\t" //       ID
+				+ "\\S+\\t" //       ID
 				+ "(\\S+)\\t" // 3: REF
 				+ "(\\S+)\\t" // 4: ALT
 				+ "(\\S+)\\t" // 5: QUAL
@@ -180,7 +180,7 @@ public class ConsensusReader {
 
 			
 			// set dp, from INFO
-			Pattern infoPatttern = Pattern.compile("DP=(\\d+)\\S+");
+			Pattern infoPatttern = Pattern.compile("\\S*DP=(\\d+)\\S*");
 			Matcher infoMatcher = infoPatttern.matcher(info);
 			if (infoMatcher.matches()) {
 				this.dp = Integer.parseInt(infoMatcher.group(1));
