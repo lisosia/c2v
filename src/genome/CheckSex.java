@@ -29,7 +29,7 @@ public class CheckSex {
 			String sampleID = e[0];
 			e1 = Integer.parseInt(e[1]);
 			e2 = Integer.parseInt(e[2]);
-			double ratio = e1/(e1+e2);
+			double ratio = e1/(e1+e2+0.0);
 			if( ratio < 0.1 ) {
 				map.put(sampleID, Sex.Male);
 			}else {
