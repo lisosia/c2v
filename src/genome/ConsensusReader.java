@@ -202,6 +202,31 @@ public class ConsensusReader {
 				return false;
 			}
 		}
+		
+		public String toString() {
+		/*	public String chr; // X,Yの時はそれぞれ -1,0 とする
+			public int position;
+			public String altsStr;
+			public int[] altsComparedToRef;
+			public float qual;
+			public boolean isIndel;
+			public int dp;
+			public int alts_num;
+			public String genoType;
+			*/
+			StringBuilder sb = new StringBuilder();
+			sb.append("chr;" + chr)
+				.append(" pos:" + position)
+				.append(" altsStr:" + altsStr)
+				.append(" altsCompToRef[0,1]:" + altsComparedToRef[0] +","+ altsComparedToRef[1])
+				.append(" qual:" + qual)
+				.append(" isIndel:" + isIndel)
+				.append(" dp:" + dp)
+				.append(" alts_num:" + alts_num)
+				.append(" genoType:" + genoType)
+				.append("\n");
+			return sb.toString();				
+		}
 
 	}
 

@@ -170,9 +170,15 @@ final public class ManageDB {// Util Class
 				minimumQual, minimumDP);
 		Sex sampleSex = checkSex.getSex(pid.getSampleName());
 		System.err.println(pid.getSampleName() +"is "+ sampleSex.name() );
-		if( chr.getStr().equals("Y") && sampleSex==Sex.Female) { return ;} // DO nothing
+		if( chr.getStr().equals("Y") && sampleSex==Sex.Female) { 
+			cmpBuf.StoreDB(TABLE_NAME);
+			System.err.println("stored empty column bacause of <chrY,female>: " + pid.getSampleName() );
+			con.close();
+			return ;} // DO nothing
 		ConsensusReader consensusReader = new ConsensusReader(filename,sampleSex, chr );
-
+		
+		int store_counter1 = 0;
+		int store_counter2 = 0;
 		while (true) {
 			if (consensusReader.readFilteredLine(lineInfo) == false) { // 読み込みここまで
 				// final STORE
@@ -180,7 +186,8 @@ final public class ManageDB {// Util Class
 				System.err.println("store finished");
 				break;
 			}
-
+			//System.out.print(lineInfo);
+			
 			if ( !lineInfo.chr.equals( chr.getStr() ) ) {
 				throw new IllegalArgumentException(
 						"与えられた chr: "+chr.getStr() +" と 入力<filename:"+filename+" の中身> が一致しません\n"
@@ -221,19 +228,23 @@ final public class ManageDB {// Util Class
 				cmpBuf.writeData(lineInfo.position,
 						lineInfo.altsComparedToRef[0],
 						lineInfo.altsComparedToRef[1]);
+				store_counter2 += 1;
+				 /*System.out.println(" "+(!chr.isSexChr() ) +" "+ (sampleSex == Sex.Female) +" "+
+						 (chr.getStr().equals("X") && ConsensusReader.isPAR_X(lineInfo.position) )   
+						 );*/
 			} else if( !( chr.getStr().equals("Y") && ConsensusReader.isPAR_Y(lineInfo.position) ) && //つまり男性,XY,非PAR
 					 	!lineInfo.genoType.equals("0/1")    ) { // 0/1のときはmisscall, readFilteredLineしてるのでこの行入らないけど一応
 				// 0b1111 はMerge時に無視される
 				cmpBuf.writeData(lineInfo.position, 
 							0b1111,
 							lineInfo.altsComparedToRef[0] );
-				System.err.println("AbORT, ");
-				System.exit(1);
+				store_counter1 += 1;
 			}else { // 染色体Yで(Maleで)PARのときは何もしない.
+				//System.out.println("Do nothing");
 			}
 
 		}
-
+		System.err.println("stored column[1,2]:"+ store_counter1+" "+store_counter2 );
 		con.close();
 
 	}
@@ -416,7 +427,10 @@ final public class ManageDB {// Util Class
 			while (d.readNext(data) != -1) {
 				final int base1 = data[0];
 				final int base2 = data[1];
-				if(base1==0b1111 || base2==0b1111) {System.err.println(" "+base1+" "+ base2 +" " + data[2]);System.exit(1);}
+				if( base2==0b1111) { //base2は0b11にならない
+					System.err.println(" "+base1+" "+ base2 +" " + data[2]);
+					throw new IllegalArgumentException("base is 0b1111. internal error");
+				}
 				final int posRead = data[2];
 				try{
 					final int BASE_DX =  MergeArrayFormat.SIZE_PER_BASE * (posRead - pos_index);
@@ -440,7 +454,8 @@ final public class ManageDB {// Util Class
 			
 		}
 		
-		if(gotIdNum != sampleIDs.size() ){ throw new IllegalArgumentException("Warning: DBファイル内に,要求されたすべてのサンプルIDが含まれていません"); }
+		//Yのときは数が合わなくても、スルーしてしまう
+		if(gotIdNum != sampleIDs.size() && !chr.getStr().equals("Y") ){ throw new IllegalArgumentException("Warning: DBファイル内に,要求されたすべてのサンプルIDが含まれていません"); }
 		con.close();
 		return ret;
 	}
@@ -510,7 +525,8 @@ final public class ManageDB {// Util Class
 			while (base_buf.readNextBaseDiff(base_ret) != -1
 					&& (ret_pos = pos_buf.readNextPos()) != -1) {
 				System.out.println("  ------   ");
-				if(base_ret[0]!=0 || base_ret[1]!=0) {System.out.print("!");}
+				if( !chr_to_print.getStr().equals("Y") && (base_ret[0]!=0 || base_ret[1]!=0) ) {System.out.print("!");}
+				if(  chr_to_print.getStr().equals("Y") && (base_ret[1]!=0) ) {System.out.print("!");}
 				System.out.println(ret_pos);
 				System.out.println(base_ret[0]);
 				System.out.println(base_ret[1]);
@@ -533,9 +549,6 @@ class MergeArrayFormat {
 	static final int TOTAL_AN_DX = 21;
 	static int getSubIndex(int base1, int base2) {
 		if(base1 == NO_DATA_BASENUM) {
-			
-			System.err.println("asdasdasdasdas");
-			System.exit(1);
 			return 4* 4 + base2;
 		} else {
 			return 4* base1 + base2;

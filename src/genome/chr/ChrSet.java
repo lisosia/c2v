@@ -55,10 +55,22 @@ public class ChrSet {
 	}
 
 	public Chr getChr(final int numForDB) {
+		for (int i = 0; i < chrSetArgs.length ; i++) {
+			ChrSetArg e = this.chrSetArgs[i];
+			if(numForDB == e.numForDB) { 
+				return new Chr(e.numForDB, e.sexChr.getStr(), e.isMaleSexChr,e.isFemaleSexChr );
+			}
+		}
 		return new Chr(numForDB,  numToStr(numForDB) );
 	}
 	
 	public Chr getChr(final String str) {
+		for (int i = 0; i < chrSetArgs.length ; i++) {
+			ChrSetArg e = this.chrSetArgs[i];
+			if( str.equals( e.sexChr.getStr() ) ) { 
+				return new Chr(e.numForDB, e.sexChr.getStr(), e.isMaleSexChr,e.isFemaleSexChr );
+			}
+		}
 		return new Chr(strToNum(str),  str );
 	}
 	
@@ -99,7 +111,7 @@ class ChrSetArg {
 	final boolean isFemaleSexChr;
 	
 	ChrSetArg(final SexChr sc, final int numForDB,
-				boolean isMaleSexChr, boolean isFemaleSexChr ) {
+				final boolean isMaleSexChr, final boolean isFemaleSexChr ) {
 		this.sexChr = sc;
 		this.numForDB = numForDB;
 		this.isMaleSexChr = isMaleSexChr;
