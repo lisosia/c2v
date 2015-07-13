@@ -15,7 +15,7 @@ public class CheckSex {
 	Map<String , Sex> map;
 	final String filename;
 	
-	public CheckSex(String filename) throws FileNotFoundException, IOException{
+	public CheckSex(final String filename,final double checkSexRatio) throws FileNotFoundException, IOException{
 		this.filename = filename;
 		File file = new File(filename);
 		if(!file.exists()) { throw new FileNotFoundException("file not fond:"+filename); }
@@ -30,7 +30,7 @@ public class CheckSex {
 			e1 = Integer.parseInt(e[1]);
 			e2 = Integer.parseInt(e[2]);
 			double ratio = e1/(e1+e2+0.0);
-			if( ratio < 0.1 ) {
+			if( ratio < checkSexRatio ) {
 				map.put(sampleID, Sex.Male);
 			}else {
 				map.put(sampleID, Sex.Female);				

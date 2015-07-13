@@ -7,7 +7,7 @@ public class TestCheckSex {
 		CheckSex checker = null;
 		try {
 			checker = new CheckSex(
-					"/home/denjo/DOCS/workspace/Consensus2VCF/etc/sex373/sex373a");
+					"/home/denjo/DOCS/workspace/Consensus2VCF/etc/sex373/sex373a", 0.1);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

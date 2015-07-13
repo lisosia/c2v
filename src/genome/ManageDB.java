@@ -37,6 +37,7 @@ final public class ManageDB {// Util Class
 	final double minimumQual;
 	final int minimumDP;
 	final String referenceDBPath;
+	final double checkSexRatio;
 	CheckSex checkSex;
 
 	/**
@@ -47,11 +48,7 @@ final public class ManageDB {// Util Class
 	 * @throws FileNotFoundException
 	 */
 	public ManageDB(String configFilePath , String checkSexFilePath) throws IOException,FileNotFoundException{
-		if(checkSexFilePath==null){
-			this.checkSex = null;
-		} else {
-			this.checkSex = new CheckSex(checkSexFilePath);
-		}
+
 		// Read config file
 		final String CONFIG_FILENAME = configFilePath; // System.getProperty("user.dir")
 														// + "/.config";
@@ -65,7 +62,7 @@ final public class ManageDB {// Util Class
 			minimumQual = Double.parseDouble(br.readLine());
 			minimumDP = Integer.parseInt(br.readLine());
 			referenceDBPath = br.readLine();
-
+			checkSexRatio = Double.parseDouble( br.readLine() );
 			/*System.err.println(">>> read configfile: " + CONFIG_FILENAME
 					+ "\noutputDBfileDir: " + DATA_DIR + "\nDATA_SPLIT_UNIT: "
 					+ DATA_SPLIT_UNIT
@@ -82,6 +79,13 @@ final public class ManageDB {// Util Class
 						"IOException while closing .configfile", e);
 			}
 		}
+		
+		if(checkSexFilePath==null){
+			this.checkSex = null;
+		} else {
+			this.checkSex = new CheckSex(checkSexFilePath, this.checkSexRatio);
+		}
+		
 	}
 
 	/*
