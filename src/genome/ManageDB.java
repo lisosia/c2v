@@ -572,61 +572,125 @@ class PrintData {
 
 	void printMergedData(int[] merged, int pos_index, PrintStream out)
 			throws IOException, SQLException {
+		
 		if (merged.length % MergeArrayFormat.SIZE_PER_BASE != 0) {
 			throw new IllegalArgumentException(
 					"arg<merged> 's format is incorrect");
 		}
+		
+		BaseCounter baseCounter = new BaseCounter();
 		for (int i = 0; i < merged.length / MergeArrayFormat.SIZE_PER_BASE; ++i) {
 			int base_dx = MergeArrayFormat.SIZE_PER_BASE * i;
 			int absolutePos;
 			if (merged[base_dx + MergeArrayFormat.IS_ALT_DX] != 0) {
-
+				baseCounter.reset();
 				absolutePos = pos_index + i;
 				final String[] ACGT = { "A", "C", "G", "T"};
 				int ref_num = rr.readByNumber(absolutePos);
 				assert ref_num != -1;
-				if (ref_num != -1) {
-					int size1 = 5;
-					int size2 = 4; //size1*size2 < SIZE_PER_BASE
-					String INFO2 = "";
-					String ALTS_STR = "";
-					for(int l = 0; l< size1*size2; ++l) {
-						int b_num = merged[base_dx + l];
-						int base1 = l / 4;
-						int base2 = l % 4;
-						if(l==0){continue;}
-						
-						if(b_num !=0) {
-							if(INFO2.length() != 0) {
-								INFO2 += ","; ALTS_STR += ",";
-							}
-							final String base1Str = (base1>=4)? "x" : ACGT[(base1+ref_num)%4];
-							final String base2Str = ACGT[(base2+ref_num)%4];
-							INFO2 += b_num;
-							ALTS_STR += (base1Str + base2Str);
-						}
+				int size1 = 5;
+				int size2 = 4; //size1*size2 < SIZE_PER_BASE
+				for(int l = 0; l< size1*size2; ++l) {
+					if(l==0){continue;}
+					int b_num = merged[base_dx + l];
+					int base1 = l / 4;
+					int base2 = l % 4;					
+					if(b_num !=0) {
+						baseCounter.set(base1, base2, ref_num, b_num);
 					}
-					if(ALTS_STR.equals("") ) { throw new IllegalArgumentException("internal error. no alts");}
-
-					int alt_total = merged[base_dx + MergeArrayFormat.TOTAL_AN_DX];
-					String INFO = "AN=" + (alt_total) + ";GC=" + INFO2;
-					//out.println(";" +absolutePos);
-					out.printf("chr%s\t%d\t%s\t%s\t.\t.\t%s\n", chr.getStr() ,absolutePos , ACGT[ref_num],
-							ALTS_STR,
-							INFO);
-				} else {
-					// TODO can't compare
-					// SKIP!!!!!!!!!!!!!!!!
-					/*
-					out.printf("refnum %d, absoltePos %d \n",ref_num,absolutePos);
-					throw new Error("FETAL check source-code");
-					*/
 				}
+				final int alt_total = merged[base_dx + MergeArrayFormat.TOTAL_AN_DX];
+				String INFO = "AN=" + (alt_total) + ";GC=" + baseCounter.getGenomeCntStr();
+				
+				out.printf("chr%s\t%d\t%s\t%s\t.\t.\t%s\n", chr.getStr() ,absolutePos , ACGT[ref_num],
+						baseCounter.getAltsStr(),
+						INFO);
 
 			}
 		}
 	}
 
+	static private class BaseCounter{
+		final private int[] buffer = new int[14]; //aa,ac,ag.at.cc,cg,ct,gg,gt,tt,xA,xC,xG,xT
+		String altsStr = null;
+		String genomeCntStr = null;
+		BaseCounter() {}
+		void reset() { 
+			for(int i=0;i<buffer.length;++i){buffer[i] =0;} 
+			this.altsStr = null;
+			this.genomeCntStr = null;
+		}
+		/**
+		 * base: acgt(diff to ref)<->[0123], "x" -- 4or4over, "x" should appear only in base1
+		 * @param base1
+		 * @param base2
+		 */
+		public void set(int base1, int base2, int ref_num,final int allele_num) {
+			if(base1>=4){ buffer[10 + base2] +=1; return;}
+			base1 = (base1 + ref_num)%4;
+			base2 = (base2 + ref_num)%4;
+			if(base1>base2) { //change to (base1 <= base2)
+				int tmp = base2; base2 = base1; base1 = tmp;
+			}
+			int index = base2;
+			switch(base1) {
+			case 0: break;
+			case 1: index += (4       -1); break;
+			case 2: index += (4+3     -2); break;
+			case 3: index += (4+3+2   -3); break;
+			default: throw new IllegalArgumentException("InternalError check code");
+			}
+			buffer[index] = allele_num;
+		}
+		
+		private void makeStrs() {
+			final StringBuilder sb1 = new StringBuilder();
+			final StringBuilder sb2 = new StringBuilder();
+			for(int i=0;i<buffer.length;++i){
+				final int AN = buffer[i];
+				if(AN != 0){
+					if(sb1.length() !=0) {
+						sb1.append(","); sb2.append(",");
+					}
+					sb1.append( this.getStr(i) );
+					sb2.append( Integer.toString( AN ) );
+				}
+			}
+			if( sb1.length() == 0) { throw new IllegalArgumentException("internal error. no alts found");}
+			this.altsStr = sb1.toString();
+			this.genomeCntStr = sb2.toString();
+		}
+		
+		public String getAltsStr(){
+			if(this.altsStr==null){ makeStrs(); }
+			return this.altsStr;
+		}
+		public String getGenomeCntStr(){
+			if(this.genomeCntStr==null){ makeStrs(); }
+			return this.genomeCntStr;
+		}
+		
+		private String getStr(final int index){
+			final String[] ACGT ={"xA","xC","xG","xT"};
+			if(index>=10){ return ACGT[index-10]; }
+			switch(index) {
+			case 0: return "AA";
+			case 1: return "AC";
+			case 2: return "AG";
+			case 3: return "AT";
+			case 4: return "CC";
+			case 5: return "CG";
+			case 6: return "CT";
+			case 7: return "GG";
+			case 8: return "GT";
+			case 9: return "TT";
+			default: throw new IllegalArgumentException("InternalError check code");
+			}
+		}
+	}
+	
+	@SuppressWarnings("unused")
+	@Deprecated
 	private String retAlTsString(int a, int c, int g, int t, int ref) {
 		if (a == 0 && c == 0 && g == 0 && t == 0) {
 			throw new IllegalArgumentException(
