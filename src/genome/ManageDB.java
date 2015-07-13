@@ -626,9 +626,12 @@ class PrintData {
 		 * @param base2
 		 */
 		public void set(int base1, int base2, int ref_num,final int allele_num) {
-			if(base1>=4){ buffer[10 + base2] +=1; return;}
-			base1 = (base1 + ref_num)%4;
+
+			// a little tricky
 			base2 = (base2 + ref_num)%4;
+			if(base1>=4){ buffer[10 + base2] = allele_num; return;}
+			base1 = (base1 + ref_num)%4;
+			
 			if(base1>base2) { //change to (base1 <= base2)
 				int tmp = base2; base2 = base1; base1 = tmp;
 			}
