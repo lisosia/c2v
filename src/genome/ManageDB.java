@@ -1,13 +1,5 @@
 package genome;
 
-import genome.GenomeDataStoreUtil.BaseArrayDeCompressor;
-import genome.GenomeDataStoreUtil.PersonalGenomeDataCompressor;
-import genome.GenomeDataStoreUtil.PersonalGenomeDataDecompressor;
-import genome.GenomeDataStoreUtil.PersonalID;
-import genome.GenomeDataStoreUtil.PositionArrayDeCompressor;
-import genome.chr.Chr;
-import genome.chr.Sex;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -26,6 +18,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+
+import genome.GenomeDataStoreUtil.BaseArrayDeCompressor;
+import genome.GenomeDataStoreUtil.PersonalGenomeDataCompressor;
+import genome.GenomeDataStoreUtil.PersonalGenomeDataDecompressor;
+import genome.GenomeDataStoreUtil.PersonalID;
+import genome.GenomeDataStoreUtil.PositionArrayDeCompressor;
+import genome.chr.Chr;
+import genome.chr.Sex;
 
 final public class ManageDB {// Util Class
 	
@@ -350,14 +350,14 @@ final public class ManageDB {// Util Class
 	}
 
 	public void printDiffByChr(Chr chr, Map<String, ArrayList<String>> id,
-			PrintStream out) throws ClassNotFoundException, SQLException,
+			PrintStream out,final boolean printNotAlts) throws ClassNotFoundException, SQLException,
 			IOException {
 
 		for (int pos : getExistingPosIndex(chr, id.keySet())) {
 			int[] merged = getMergedData(chr, id, pos);
 			// String chr_str = (chr==23)? "X" : (chr==24) ? "Y" :
 			// String.valueOf(chr);
-			new PrintData(chr, referenceDBPath).printMergedData(merged, pos,
+			new PrintData(chr, referenceDBPath,printNotAlts).printMergedData(merged, pos,
 					out);
 		}
 	}
@@ -545,6 +545,11 @@ final public class ManageDB {// Util Class
 
 }
 
+/**
+ * 名前の通り merge で集計するときに使用する
+ * baes2ではなくbase1 が、 0b1111 が許される。
+ *
+ */
 class MergeArrayFormat {
 	private MergeArrayFormat(){}
 	static final int SIZE_PER_BASE  = 22;
@@ -563,9 +568,10 @@ class MergeArrayFormat {
 class PrintData {
 	private Chr chr;
 	ReferenceReader rr;
-
-	PrintData(Chr chr, String refDBPath) throws IOException, SQLException {
+	final boolean printNotAlts;
+	PrintData(Chr chr, String refDBPath,boolean printNotAlts) throws IOException, SQLException {
 		this.chr = chr;
+		this.printNotAlts = printNotAlts;
 		// TODO WHEN CHR = X/Y
 		rr = new ReferenceReader(chr, refDBPath);
 	}
@@ -582,16 +588,17 @@ class PrintData {
 		for (int i = 0; i < merged.length / MergeArrayFormat.SIZE_PER_BASE; ++i) {
 			int base_dx = MergeArrayFormat.SIZE_PER_BASE * i;
 			int absolutePos;
+			final String[] ACGT = { "A", "C", "G", "T"};
 			if (merged[base_dx + MergeArrayFormat.IS_ALT_DX] != 0) {
 				baseCounter.reset();
 				absolutePos = pos_index + i;
-				final String[] ACGT = { "A", "C", "G", "T"};
 				int ref_num = rr.readByNumber(absolutePos);
 				assert ref_num != -1;
 				int size1 = 5;
 				int size2 = 4; //size1*size2 < SIZE_PER_BASE
 				for(int l = 0; l< size1*size2; ++l) {
-					if(l==0){continue;}
+					// comment-out to print "AA" when ref=="A"
+					//if(l==0){continue;}
 					int b_num = merged[base_dx + l];
 					int base1 = l / 4;
 					int base2 = l % 4;					
@@ -606,6 +613,22 @@ class PrintData {
 						baseCounter.getAltsStr(),
 						INFO);
 
+			} else if(printNotAlts) { // refと一致しても print する場合 (オプション)
+				absolutePos = pos_index + i;
+				int ref_num = rr.readByNumber(absolutePos);
+				final int alt_total = merged[base_dx + MergeArrayFormat.TOTAL_AN_DX];
+				
+				boolean hasOneChr = false;
+				//TODO u-nn...
+				if( merged[base_dx + 4*4 +0] >0 || merged[base_dx + 4*4 +1] >0 ||
+					merged[base_dx + 4*4 +2] >0	|| merged[base_dx + 4*4 +3] >0  ) {
+					hasOneChr = true;
+				}
+				
+				String INFO = "AN=" + (alt_total) + ";GC=" + alt_total;				
+				out.printf("chr%s\t%d\t%s\t%s\t.\t.\t%s\n", chr.getStr() ,absolutePos , ACGT[ref_num],
+						(hasOneChr? ("x" + ACGT[ref_num]) : ACGT[ref_num] ),
+						INFO);
 			}
 		}
 	}

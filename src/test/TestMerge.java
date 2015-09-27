@@ -36,9 +36,9 @@ public class TestMerge {
 		long t0 = System.nanoTime();
 		String config = "/home/denjo/DOCS/workspace/Consensus2VCF/etc/.config";
 		ManageDB mdb = new ManageDB(config, null);
-		mdb.printDiffByChr(chr, id, new PrintStream(new File(
-				"/home/denjo/Documents/workspace/Consensus2VCF/etc/vcf_data/"
-						+ runID)));
+		mdb.printDiffByChr(chr, id,
+				new PrintStream(new File("/home/denjo/Documents/workspace/Consensus2VCF/etc/vcf_data/" + runID))
+				,false);
 		long t1 = System.nanoTime();
 		System.out.println((t1 - t0) / (1000 * 1000 * 1000 + 0.0)
 				+ "sec to merge");

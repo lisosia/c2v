@@ -21,12 +21,18 @@ public class MainMerge {
 		final String configFilePath;
 		final String chrStr;
 		final ChrSet humanChrSet = ChrSetFactory.getHumanChrSet();
-		if (args.length != 2) {
+		final boolean printNotAlts;
+		if (args.length != 3) {
 			throw new IllegalArgumentException(
-					"Usage: java -jar jarfile genome.MainMerge [chr([1-22]|X|Y) | 'all'] configPath");
+					"Usage: java -jar jarfile genome.MainMerge [chr([1-22]|X|Y) | 'all'] configPath [true|false](print notAlts or not)");
 		} else {
 			configFilePath = args[1];
 			chrStr = args[0];
+			switch (args[2]) {
+			case "true": printNotAlts = true; break;
+			case "false":printNotAlts = false;break;
+			default: throw new IllegalArgumentException("3rd arg should be [true] or [false]");
+			}
 		}
 
 		Map<String, ArrayList<String>> id = createList(System.in);
@@ -34,15 +40,15 @@ public class MainMerge {
 		ManageDB mdb = new ManageDB(configFilePath, null);
 		if (chrStr.equals("all") ) {
 			for (Chr c : humanChrSet.getNormalChrs() ) {
-				mdb.printDiffByChr(c, id, System.out);				
+				mdb.printDiffByChr(c, id, System.out,printNotAlts);				
 			}
 			for (Chr c : humanChrSet.getSexChrs() ) {
-				mdb.printDiffByChr(c, id, System.out);				
+				mdb.printDiffByChr(c, id, System.out,printNotAlts);				
 			}
 
 		} else {
 			Chr chr = humanChrSet.getChr( args[0] );			
-			mdb.printDiffByChr(chr, id, System.out);
+			mdb.printDiffByChr(chr, id, System.out,printNotAlts);
 		}
 
 	}
