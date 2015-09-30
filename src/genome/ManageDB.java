@@ -13,6 +13,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -416,11 +417,20 @@ final public class ManageDB {// Util Class
 		ps.setInt(1, pos_index);
 		ResultSet rs = ps.executeQuery();
 
+		//for validation
+		HashMap<String, Boolean> gotData = new HashMap<String,Boolean>();
+		for (String id : sampleIDs) {
+			gotData.put(id, false);
+		}
+		
 		int[] ret = new int[ MergeArrayFormat.SIZE_PER_BASE * (DATA_SPLIT_UNIT+1)];  //AA,AC,...,TT, _A,_B,_C,_T, isALT
 		int gotIdNum = 0;
 		while (rs.next()) {
 			gotIdNum += 1;
 			final String gotID = rs.getString("sample_id");
+			assert gotData.containsKey(gotID);
+			gotData.put(gotID, true);
+			
 			System.err.println("merging   sample_id:"
 					+ gotID + " pos_index:"
 					+ String.valueOf(pos_index));
@@ -459,7 +469,32 @@ final public class ManageDB {// Util Class
 		}
 		
 		//Yのときは数が合わなくても、スルーしてしまう
-		if(gotIdNum != sampleIDs.size() && !chr.getStr().equals("Y") ){ throw new IllegalArgumentException("Warning: DBファイル内に,要求されたすべてのサンプルIDが含まれていません"); }
+		// !chr.getStr().equals("Y") のとき、大量にMegが出力されるはず、、、どうしようか。
+		if( gotData.containsValue(false) ){
+			final String preMsg = "missing DB Data ::\n" +
+					 "chr:" + chr +
+					 ",runID:" + runID +
+					 ",position(index):" +pos_index + "\n" + 
+					 "missing sample_id(s):";
+			if( !chr.getStr().equals("Y") ){
+				String Msg = "";
+				for(Map.Entry<String, Boolean> e: gotData.entrySet() ) {
+					Msg += ( e.getKey() + "," );
+				}
+				System.err.println(preMsg + Msg);
+				//throw new IllegalArgumentException("Warning: DBファイル内に,要求されたすべてのサンプルIDが含まれていません"); 
+
+			} else { // when chrY
+				String Msg = "";
+				for(Map.Entry<String, Boolean> e: gotData.entrySet() ) {
+					if( checkSex.getSex(e.getKey()) == Sex.Female ) { continue; } // Femaleのときは関係なし
+					Msg += ( e.getKey() + "," );
+				}
+				System.err.println(preMsg + Msg);
+			}
+			
+		}
+		
 		con.close();
 		return ret;
 	}
