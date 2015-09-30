@@ -18,17 +18,18 @@ public class MainMerge {
 	public static void main(String[] args) throws ClassNotFoundException,
 			SQLException, IOException {
 
-		final String configFilePath;
+		final String configFilePath, checkSexFilePath;
 		final String chrStr;
 		final ChrSet humanChrSet = ChrSetFactory.getHumanChrSet();
 		final boolean printNotAlts;
-		if (args.length != 3) {
+		if (args.length != 4) {
 			throw new IllegalArgumentException(
-					"Usage: java -jar jarfile genome.MainMerge [chr([1-22]|X|Y) | 'all'] configPath [true|false](print notAlts or not)");
+					"Usage: java -jar jarfile genome.MainMerge [chr([1-22]|X|Y) | 'all'] configPath checksex [true|false](print notAlts or not)");
 		} else {
 			configFilePath = args[1];
 			chrStr = args[0];
-			switch (args[2]) {
+			checkSexFilePath = args[2];
+			switch (args[3]) {
 			case "true": printNotAlts = true; break;
 			case "false":printNotAlts = false;break;
 			default: throw new IllegalArgumentException("3rd arg should be [true] or [false]");
@@ -37,7 +38,7 @@ public class MainMerge {
 
 		Map<String, ArrayList<String>> id = createList(System.in);
 
-		ManageDB mdb = new ManageDB(configFilePath, null);
+		ManageDB mdb = new ManageDB(configFilePath, checkSexFilePath);
 		if (chrStr.equals("all") ) {
 			for (Chr c : humanChrSet.getNormalChrs() ) {
 				mdb.printDiffByChr(c, id, System.out,printNotAlts);				

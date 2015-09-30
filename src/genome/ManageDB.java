@@ -203,8 +203,13 @@ final public class ManageDB {// Util Class
 				isFirst = false;
 			}
 
-			if (lineInfo.position > pos_index_forDB + DATA_SPLIT_UNIT) { // data
-																			// spilit
+			/* data spilit
+			 * (n+1) * DATA_SPLIT_UNIT < (parseしたposition) のときは、StoreDB
+			 * そののちにWRITEしている。
+			 * よって n*DATA_SPLIT_UNIT < pos =< (n+1)*DATA_SPLIT_UNIT   が分割領域
+			 * 具体的には 1-10000000,10000001-20000000,... (positionは1から始まることに注意) 
+			 */
+			if (lineInfo.position > pos_index_forDB + DATA_SPLIT_UNIT) { 
 				// line_ct_per_spilit = 0;
 				// STORING
 				cmpBuf.StoreDB(TABLE_NAME);
@@ -479,7 +484,9 @@ final public class ManageDB {// Util Class
 			if( !chr.getStr().equals("Y") ){
 				String Msg = "";
 				for(Map.Entry<String, Boolean> e: gotData.entrySet() ) {
-					Msg += ( e.getKey() + "," );
+					if(e.getValue() == false ) {
+						Msg += ( e.getKey() + "," );
+					}
 				}
 				System.err.println(preMsg + Msg);
 				//throw new IllegalArgumentException("Warning: DBファイル内に,要求されたすべてのサンプルIDが含まれていません"); 
@@ -488,9 +495,14 @@ final public class ManageDB {// Util Class
 				String Msg = "";
 				for(Map.Entry<String, Boolean> e: gotData.entrySet() ) {
 					if( checkSex.getSex(e.getKey()) == Sex.Female ) { continue; } // Femaleのときは関係なし
-					Msg += ( e.getKey() + "," );
+					if(e.getValue() == false ) {
+						Msg += ( e.getKey() + "," );
+					}
 				}
-				System.err.println(preMsg + Msg);
+				if( !Msg.equals("")) {
+					System.err.println(preMsg + Msg);		
+				}
+
 			}
 			
 		}
@@ -611,6 +623,7 @@ class PrintData {
 		rr = new ReferenceReader(chr, refDBPath);
 	}
 
+	// ここの文脈での base は baseDiff
 	void printMergedData(int[] merged, int pos_index, PrintStream out)
 			throws IOException, SQLException {
 		
@@ -620,11 +633,49 @@ class PrintData {
 		}
 		
 		BaseCounter baseCounter = new BaseCounter();
-		for (int i = 0; i < merged.length / MergeArrayFormat.SIZE_PER_BASE; ++i) {
+		/* forLoopは i: 1 =< i < (DATA_SPLIT_UNIT+1)  _注:retで検索 
+		 * merge~関数 のときは const*(DATA_SPLIT_UNIT+1) の長さの配列を用意し, index=0は使っていない
+		 * 少しややこしいので、注意
+		 */
+		for (int i = 1; i < merged.length / MergeArrayFormat.SIZE_PER_BASE; ++i) {
 			int base_dx = MergeArrayFormat.SIZE_PER_BASE * i;
 			int absolutePos;
 			final String[] ACGT = { "A", "C", "G", "T"};
-			if (merged[base_dx + MergeArrayFormat.IS_ALT_DX] != 0) {
+
+			if( printNotAlts && merged[base_dx + MergeArrayFormat.TOTAL_AN_DX] == 0) {continue;}
+			if(!printNotAlts && merged[base_dx + MergeArrayFormat.IS_ALT_DX]   == 0) {continue;}
+			
+			// printかつalt==0 -> listを症らくできる
+			if ( printNotAlts && merged[base_dx + MergeArrayFormat.IS_ALT_DX] ==0 ) {
+
+				baseCounter.reset();
+				absolutePos = pos_index + i;
+				int ref_num = rr.readByNumber(absolutePos);
+				assert ref_num != -1;
+				
+				///////////////////
+				// int list[] = { 0 , 4*4+ref_num };
+				///////////////////
+				int b_num1 = merged[base_dx + 0];
+				if(b_num1 !=0) {
+					baseCounter.set(0, 0, ref_num, b_num1);
+				}
+				int b_num2 = merged[base_dx + 4*4];
+				if(b_num2 !=0) {
+					baseCounter.set(4, 0, ref_num, b_num2);
+				}
+				//////////
+				
+				final int alt_total = merged[base_dx + MergeArrayFormat.TOTAL_AN_DX];
+				String INFO = "AN=" + (alt_total) + ";GC=" + baseCounter.getGenomeCntStr();
+				
+				out.printf("chr%s\t%d\t%s\t%s\t.\t.\t%s\n", chr.getStr() ,absolutePos , ACGT[ref_num],
+						baseCounter.getAltsStr(),
+						INFO);
+				
+				// altなら出力
+			} else if( merged[base_dx + MergeArrayFormat.IS_ALT_DX] != 0 ) { 
+
 				baseCounter.reset();
 				absolutePos = pos_index + i;
 				int ref_num = rr.readByNumber(absolutePos);
@@ -648,22 +699,7 @@ class PrintData {
 						baseCounter.getAltsStr(),
 						INFO);
 
-			} else if(printNotAlts) { // refと一致しても print する場合 (オプション)
-				absolutePos = pos_index + i;
-				int ref_num = rr.readByNumber(absolutePos);
-				final int alt_total = merged[base_dx + MergeArrayFormat.TOTAL_AN_DX];
 				
-				boolean hasOneChr = false;
-				//TODO u-nn...
-				if( merged[base_dx + 4*4 +0] >0 || merged[base_dx + 4*4 +1] >0 ||
-					merged[base_dx + 4*4 +2] >0	|| merged[base_dx + 4*4 +3] >0  ) {
-					hasOneChr = true;
-				}
-				
-				String INFO = "AN=" + (alt_total) + ";GC=" + alt_total;				
-				out.printf("chr%s\t%d\t%s\t%s\t.\t.\t%s\n", chr.getStr() ,absolutePos , ACGT[ref_num],
-						(hasOneChr? ("x" + ACGT[ref_num]) : ACGT[ref_num] ),
-						INFO);
 			}
 		}
 	}
