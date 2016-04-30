@@ -1,4 +1,4 @@
-package test;
+package genome;
 
 import genome.ManageDB;
 import genome.chr.Chr;

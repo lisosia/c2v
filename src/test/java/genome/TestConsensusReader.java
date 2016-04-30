@@ -1,4 +1,4 @@
-package test;
+package genome;
 
 import genome.ConsensusReader;
 import genome.chr.Chr;
