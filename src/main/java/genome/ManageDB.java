@@ -25,6 +25,7 @@ import genome.GenomeDataStoreUtil.PersonalGenomeDataCompressor;
 import genome.GenomeDataStoreUtil.PersonalGenomeDataDecompressor;
 import genome.GenomeDataStoreUtil.PersonalID;
 import genome.GenomeDataStoreUtil.PositionArrayDeCompressor;
+import genome.ManageDB.MergedData;
 import genome.chr.Chr;
 import genome.chr.Sex;
 
@@ -360,34 +361,107 @@ final public class ManageDB {// Util Class
 			IOException {
 
 		for (int pos : getExistingPosIndex(chr, id.keySet())) {
-			int[] merged = getMergedData(chr, id, pos);
+//			MergedData[] merged = getMergedData(chr, id, pos);
+//			System.err.print("init memory:pos : " + pos + "\tsize : " + (MergeArrayFormat.SIZE_PER_BASE * (DATA_SPLIT_UNIT+1)));
+			MergedData[] merged = new MergedData[MergeArrayFormat.SIZE_PER_BASE * (DATA_SPLIT_UNIT+1)];
+//			System.err.print("...");
+//			for(int i=0;i<merged.length;i++){
+//				merged[i] = new MergedData();
+//			}
+//			System.err.println("finish");
+			for (String runID : id.keySet()) {
+//				System.err.println("run id : " + runID);
+				MergedData[] mergedByRunID = getMergedDataByRunID(chr, runID, id.get(runID), pos);
+				assert( merged.length == mergedByRunID.length );
+				for (int i = 0; i < mergedByRunID.length; i++) {
+//					merged[i] += mergedByRunID[i];
+					if(mergedByRunID[i] != null){
+						if(merged[i] == null){
+							merged[i] = new MergedData(mergedByRunID[i].getNum(), mergedByRunID[i].getIdList());
+						}
+						else{
+							merged[i].addData(mergedByRunID[i].getNum(), mergedByRunID[i].getIdList());
+						}
+					}
+				}
+//				mergedByRunID = null; // GCを期待
+			}
 			// String chr_str = (chr==23)? "X" : (chr==24) ? "Y" :
 			// String.valueOf(chr);
-			new PrintData(chr, referenceDBPath,printNotAlts).printMergedData(merged, pos,
-					out);
+			new PrintData(chr, referenceDBPath,printNotAlts).printMergedData(merged, pos, out);
+//			merged = null; // GCを期待			
 		}
 	}
 
-	/**
-	 * @param id
-	 *            Map<runID, ArrayList of sampleIDs> mergeするData特定用
-	 */
-	int[] getMergedData(Chr chr, Map<String, ArrayList<String>> id,
-			int pos_index) throws IOException, SQLException,
-			ClassNotFoundException {
-		int[] ret = new int[MergeArrayFormat.SIZE_PER_BASE * (DATA_SPLIT_UNIT+1)];
-		for (String runID : id.keySet()) {
-			int[] mergedByRunID = getMergedDataByRunID(chr, runID, id.get(runID), pos_index);
-			assert( ret.length == mergedByRunID.length );
-			for (int i = 0; i < mergedByRunID.length; i++) {
-				ret[i] += mergedByRunID[i];
+//	/**
+//	 * @param id
+//	 *            Map<runID, ArrayList of sampleIDs> mergeするData特定用
+//	 */
+//	MergedData[] getMergedData(Chr chr, Map<String, ArrayList<String>> id,
+//			int pos_index) throws IOException, SQLException,
+//			ClassNotFoundException {
+//		MergedData[] ret = new MergedData[MergeArrayFormat.SIZE_PER_BASE * (DATA_SPLIT_UNIT+1)];
+//		for(int i=0;i<ret.length;i++){
+//			ret[i] = new MergedData();
+//		}
+//		for (String runID : id.keySet()) {
+//			System.err.println("run id : " + runID);
+//			MergedData[] mergedByRunID = getMergedDataByRunID(chr, runID, id.get(runID), pos_index);
+//			assert( ret.length == mergedByRunID.length );
+//			for (int i = 0; i < mergedByRunID.length; i++) {
+////				ret[i] += mergedByRunID[i];
+//				ret[i].addData(mergedByRunID[i].getNum(), mergedByRunID[i].getIdList());
+//			}
+//			mergedByRunID = null; // GCを期待
+//		}
+//		return ret;
+//	}
+
+	public class MergedData{
+		private int num;
+		private StringBuilder idList;
+
+		public MergedData(){
+			num = 0;
+			idList = new StringBuilder();
+		}
+		public MergedData(int i){
+			num = i;
+			idList = new StringBuilder();
+		}
+		public MergedData(int i, String id){
+			num = i;
+			idList = new StringBuilder(id);
+		}
+		public void addNum(int i){
+			num += i;
+		}
+		public int getNum(){
+			return num;
+		}
+		public void addId(String id){
+			if(idList.length() != 0){
+				idList.append(',');
 			}
-			mergedByRunID = null; // GCを期待
+			idList.append(id);
 		}
-		return ret;
+		public String getIdList(){
+			return idList.toString();
+		}
+		public void addData(int i, String id){
+			addNum(i);
+			addId(id);
+		}
+		public String toString(){
+			return num + "\t" + idList.toString();
+		}
+		public void clear(){
+			num = 0;
+			idList.setLength(0);
+		}
 	}
-
-	int[] getMergedDataByRunID(Chr chr, String runID, List<String> sampleIDs,
+	
+	MergedData[] getMergedDataByRunID(Chr chr, String runID, List<String> sampleIDs,
 			int pos_index) throws SQLException, ClassNotFoundException,
 			IOException {
 		if (sampleIDs.size() == 0) {
@@ -428,10 +502,13 @@ final public class ManageDB {// Util Class
 			gotData.put(id, false);
 		}
 		
-		int[] ret = new int[ MergeArrayFormat.SIZE_PER_BASE * (DATA_SPLIT_UNIT+1)];  //AA,AC,...,TT, _A,_B,_C,_T, isALT
-		int gotIdNum = 0;
+		MergedData[] ret = new MergedData[ MergeArrayFormat.SIZE_PER_BASE * (DATA_SPLIT_UNIT+1)];  //AA,AC,...,TT, _A,_B,_C,_T, isALT
+//		for(int i=0;i<ret.length;i++){
+//			ret[i] = new MergedData();
+//		}
+//		int gotIdNum = 0;
 		while (rs.next()) {
-			gotIdNum += 1;
+//			gotIdNum += 1;
 			final String gotID = rs.getString("sample_id");
 			assert gotData.containsKey(gotID);
 			gotData.put(gotID, true);
@@ -454,14 +531,34 @@ final public class ManageDB {// Util Class
 				try{
 					final int BASE_DX =  MergeArrayFormat.SIZE_PER_BASE * (posRead - pos_index);
 					if( (base1 != 0 && base1!=0b1111) || base2 != 0 ) {
-						ret[BASE_DX + MergeArrayFormat.IS_ALT_DX] = 1;//flag for !=ref
+						ret[BASE_DX + MergeArrayFormat.IS_ALT_DX] = new MergedData(1);;//flag for !=ref
 					}
 					if(base1 != 0b1111){
-						ret[ BASE_DX + MergeArrayFormat.getSubIndex(base1, base2) ] += 1;
-						ret[BASE_DX + MergeArrayFormat.TOTAL_AN_DX] += 2;
+						if(ret[ BASE_DX + MergeArrayFormat.getSubIndex(base1, base2) ] == null){
+							ret[ BASE_DX + MergeArrayFormat.getSubIndex(base1, base2) ] = new MergedData(1, gotID);
+						}
+						else{
+							ret[ BASE_DX + MergeArrayFormat.getSubIndex(base1, base2) ].addData(1, gotID);
+						}
+						if(ret[BASE_DX + MergeArrayFormat.TOTAL_AN_DX] == null){
+							ret[BASE_DX + MergeArrayFormat.TOTAL_AN_DX] = new MergedData(2);
+						}
+						else{
+							ret[BASE_DX + MergeArrayFormat.TOTAL_AN_DX].addNum(2);						
+						}
 					} else {
-						ret[ BASE_DX + MergeArrayFormat.getSubIndex(base1, base2) ] += 1; // same
-						ret[BASE_DX + MergeArrayFormat.TOTAL_AN_DX] += 1;
+						if(ret[ BASE_DX + MergeArrayFormat.getSubIndex(base1, base2) ] == null){
+							ret[ BASE_DX + MergeArrayFormat.getSubIndex(base1, base2) ] = new MergedData(1, gotID);
+						}
+						else{
+							ret[ BASE_DX + MergeArrayFormat.getSubIndex(base1, base2) ].addData(1, gotID);
+						}
+						if(ret[BASE_DX + MergeArrayFormat.TOTAL_AN_DX] == null){
+							ret[BASE_DX + MergeArrayFormat.TOTAL_AN_DX] = new MergedData(1);
+						}
+						else{
+							ret[BASE_DX + MergeArrayFormat.TOTAL_AN_DX].addNum(1);
+						}
 					}
 					
 				}catch (ArrayIndexOutOfBoundsException e){
@@ -624,7 +721,7 @@ class PrintData {
 	}
 
 	// ここの文脈での base は baseDiff
-	void printMergedData(int[] merged, int pos_index, PrintStream out)
+	void printMergedData(MergedData[] merged, int pos_index, PrintStream out)
 			throws IOException, SQLException {
 		
 		if (merged.length % MergeArrayFormat.SIZE_PER_BASE != 0) {
@@ -642,11 +739,11 @@ class PrintData {
 			int absolutePos;
 			final String[] ACGT = { "A", "C", "G", "T"};
 
-			if( printNotAlts && merged[base_dx + MergeArrayFormat.TOTAL_AN_DX] == 0) {continue;}
-			if(!printNotAlts && merged[base_dx + MergeArrayFormat.IS_ALT_DX]   == 0) {continue;}
+			if( printNotAlts && (merged[base_dx + MergeArrayFormat.TOTAL_AN_DX] == null || merged[base_dx + MergeArrayFormat.TOTAL_AN_DX].getNum() == 0)) {continue;}
+			if(!printNotAlts && (merged[base_dx + MergeArrayFormat.IS_ALT_DX] == null || merged[base_dx + MergeArrayFormat.IS_ALT_DX].getNum()   == 0)) {continue;}
 			
 			// printかつalt==0 -> listを症らくできる
-			if ( printNotAlts && merged[base_dx + MergeArrayFormat.IS_ALT_DX] ==0 ) {
+			if ( printNotAlts && (merged[base_dx + MergeArrayFormat.IS_ALT_DX] == null || merged[base_dx + MergeArrayFormat.IS_ALT_DX].getNum() ==0 )) {
 
 				baseCounter.reset();
 				absolutePos = pos_index + i;
@@ -656,26 +753,35 @@ class PrintData {
 				///////////////////
 				// int list[] = { 0 , 4*4+ref_num };
 				///////////////////
-				int b_num1 = merged[base_dx + 0];
-				if(b_num1 !=0) {
-					baseCounter.set(0, 0, ref_num, b_num1);
+				int b_num1 = 0;
+				String b_id1 = new String();
+				if(merged[base_dx + 0] != null){
+					b_num1 = merged[base_dx + 0].getNum();
+					b_id1 = merged[base_dx + 0].getIdList();
 				}
-				int b_num2 = merged[base_dx + 4*4];
+				if(b_num1 !=0) {
+					baseCounter.set(0, 0, ref_num, b_num1, b_id1);
+				}
+				int b_num2 = 0;
+				String b_id2 = new String();
+				if(merged[base_dx + 4*4] != null){
+					b_num2 = merged[base_dx + 4*4].getNum();
+					b_id2 = merged[base_dx + 4*4].getIdList();
+				}
 				if(b_num2 !=0) {
-					baseCounter.set(4, 0, ref_num, b_num2);
+					baseCounter.set(4, 0, ref_num, b_num2, b_id2);
 				}
 				//////////
 				
-				final int alt_total = merged[base_dx + MergeArrayFormat.TOTAL_AN_DX];
+				final int alt_total = merged[base_dx + MergeArrayFormat.TOTAL_AN_DX].getNum();
 				String INFO = "AN=" + (alt_total) + ";GC=" + baseCounter.getGenomeCntStr();
-				
-				out.printf("chr%s\t%d\t%s\t%s\t.\t.\t%s\n", chr.getStr() ,absolutePos , ACGT[ref_num],
+
+				out.printf("chr%s\t%d\t%s\t%s\t.\t.\t%s\t%s\n", chr.getStr() ,absolutePos , ACGT[ref_num],
 						baseCounter.getAltsStr(),
-						INFO);
+						INFO, baseCounter.getIdLists());
 				
 				// altなら出力
-			} else if( merged[base_dx + MergeArrayFormat.IS_ALT_DX] != 0 ) { 
-
+			} else if( merged[base_dx + MergeArrayFormat.IS_ALT_DX] != null && merged[base_dx + MergeArrayFormat.IS_ALT_DX].getNum() != 0 ) { 
 				baseCounter.reset();
 				absolutePos = pos_index + i;
 				int ref_num = rr.readByNumber(absolutePos);
@@ -685,19 +791,24 @@ class PrintData {
 				for(int l = 0; l< size1*size2; ++l) {
 					// comment-out to print "AA" when ref=="A"
 					//if(l==0){continue;}
-					int b_num = merged[base_dx + l];
+					int b_num = 0;
+					String b_id = new String();
+					if(merged[base_dx + l] != null){
+						b_num = merged[base_dx + l].getNum();
+						b_id = merged[base_dx + l].getIdList();
+					}
 					int base1 = l / 4;
 					int base2 = l % 4;					
 					if(b_num !=0) {
-						baseCounter.set(base1, base2, ref_num, b_num);
+						baseCounter.set(base1, base2, ref_num, b_num, b_id);
 					}
 				}
-				final int alt_total = merged[base_dx + MergeArrayFormat.TOTAL_AN_DX];
+				final int alt_total = merged[base_dx + MergeArrayFormat.TOTAL_AN_DX].getNum();
 				String INFO = "AN=" + (alt_total) + ";GC=" + baseCounter.getGenomeCntStr();
 				
-				out.printf("chr%s\t%d\t%s\t%s\t.\t.\t%s\n", chr.getStr() ,absolutePos , ACGT[ref_num],
+				out.printf("chr%s\t%d\t%s\t%s\t.\t.\t%s\t%s\n", chr.getStr() ,absolutePos , ACGT[ref_num],
 						baseCounter.getAltsStr(),
-						INFO);
+						INFO,baseCounter.getIdLists());
 
 				
 			}
@@ -706,11 +817,14 @@ class PrintData {
 
 	static private class BaseCounter{
 		final private int[] buffer = new int[14]; //aa,ac,ag.at.cc,cg,ct,gg,gt,tt,xA,xC,xG,xT
+		final private String[] id_buffer = new String[14];
 		String altsStr = null;
 		String genomeCntStr = null;
+		String idLists = null;
 		BaseCounter() {}
 		void reset() { 
 			for(int i=0;i<buffer.length;++i){buffer[i] =0;} 
+			for(int i=0;i<id_buffer.length;++i){id_buffer[i] = new String();} 			
 			this.altsStr = null;
 			this.genomeCntStr = null;
 		}
@@ -719,11 +833,11 @@ class PrintData {
 		 * @param base1
 		 * @param base2
 		 */
-		public void set(int base1, int base2, int ref_num,final int allele_num) {
+		public void set(int base1, int base2, int ref_num,final int allele_num, String idList) {
 
 			// a little tricky
 			base2 = (base2 + ref_num)%4;
-			if(base1>=4){ buffer[10 + base2] = allele_num; return;}
+			if(base1>=4){ buffer[10 + base2] = allele_num; id_buffer[10 + base2] = idList; return;}
 			base1 = (base1 + ref_num)%4;
 			
 			if(base1>base2) { //change to (base1 <= base2)
@@ -738,24 +852,28 @@ class PrintData {
 			default: throw new IllegalArgumentException("InternalError check code");
 			}
 			buffer[index] = allele_num;
+			id_buffer[index] = idList;
 		}
 		
 		private void makeStrs() {
 			final StringBuilder sb1 = new StringBuilder();
 			final StringBuilder sb2 = new StringBuilder();
+			final StringBuilder sb3 = new StringBuilder();			
 			for(int i=0;i<buffer.length;++i){
 				final int AN = buffer[i];
 				if(AN != 0){
 					if(sb1.length() !=0) {
-						sb1.append(","); sb2.append(",");
+						sb1.append(","); sb2.append(","); sb3.append("\t");
 					}
 					sb1.append( this.getStr(i) );
 					sb2.append( Integer.toString( AN ) );
+					sb3.append( id_buffer[i]);
 				}
 			}
 			if( sb1.length() == 0) { throw new IllegalArgumentException("internal error. no alts found");}
 			this.altsStr = sb1.toString();
 			this.genomeCntStr = sb2.toString();
+			this.idLists = sb3.toString();
 		}
 		
 		public String getAltsStr(){
@@ -765,6 +883,10 @@ class PrintData {
 		public String getGenomeCntStr(){
 			if(this.genomeCntStr==null){ makeStrs(); }
 			return this.genomeCntStr;
+		}
+		public String getIdLists(){
+			if(this.idLists==null){ makeStrs(); }
+			return this.idLists;
 		}
 		
 		private String getStr(final int index){
