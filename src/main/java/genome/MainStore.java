@@ -22,11 +22,11 @@ public class MainStore {
 			runID = args[0];
 			sampleID = args[1];
 			consensuFilePath = args[2];
-			chr = humanChrSet.getChr( args[3] );
+			chr = humanChrSet.getChr(args[3]);
 			configFilePath = args[4];
 			checkSexFilePath = args[5];
 		}
-		ManageDB mdb = new ManageDB(configFilePath,checkSexFilePath);
+		ManageDB mdb = new ManageDB(configFilePath, checkSexFilePath);
 		try {
 			mdb.store(runID, sampleID, chr, consensuFilePath);
 		} finally {
