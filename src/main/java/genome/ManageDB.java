@@ -1,11 +1,14 @@
 package genome;
 
+import static util.Utils.error2StackTrace;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -27,7 +30,6 @@ import genome.GenomeDataStoreUtil.PersonalID;
 import genome.GenomeDataStoreUtil.PositionArrayDeCompressor;
 import genome.chr.Chr;
 import genome.chr.Sex;
-import static util.Utils.error2StackTrace;
 
 final public class ManageDB {// Util Class
 
@@ -125,14 +127,17 @@ final public class ManageDB {// Util Class
 
 			try {
 				removeDBData(pid, chr);
-				System.err.println(" Removed the data");
+				System.err.println("Removed the data");
 			} catch (SQLException e2) {
 				System.err.println(" Failed to removed the data");
-				throw new RuntimeException("store failed", e2);
+				//TODO more detailed info, by onbject<runid,sampleid,chr,filename>
+				throw new RuntimeException("store failed ", e2);
 			}
+			//TODO more detailed info, by onbject<runid,sampleid,chr,filename>
+			throw new RuntimeException("store failed, remove the entry <<OBJ>>>", e);
 		}
 		long t1 = System.nanoTime();
-		System.err.println("Store fin, " + (t1 - t0) / (1000 * 1000 * 1000 + 0.0) + " sec passed. " + runID + ","
+		System.err.println("Store fin, " + (t1 - t0) / (1_000_000_000 + 0.0) + " sec passed. " + runID + ","
 				+ sampleID + "," + chr);
 
 	}
@@ -149,11 +154,11 @@ final public class ManageDB {// Util Class
 		// TODO primary制約にひっかかってエラーが出たら、それをキャッチしてクライアントに伝える
 
 		Connection con = getConnection(pid.getRunID(), chr);
+		
 		if (checkDataExistance(con, pid.getRunID(), pid.getSampleName(), chr)) {
-			System.err.println("Data[ runID:" + pid.getRunID() + ",sampleName:" + pid.getSampleName() + "chr:" + chr
-					+ "] " + "already exists. check <" + DATA_DIR + pid.getRunID() + "> .");
-			System.err.println("");
-			System.exit(1);
+			String msg = String.format("you tried to store already existing data[pid:%s,chr:%s,filename:%s]", pid,chr,filename);
+			msg += String.format("\nCheck sqlite data in %s", new File(DATA_DIR, pid.getRunID() ) );
+			throw new RuntimeException(msg);
 		}
 
 		int pos_index_forDB = 0;
@@ -256,11 +261,8 @@ final public class ManageDB {// Util Class
 
 	public void initDB(String runID, Chr chr) throws ClassNotFoundException, SQLException {
 
-		final String dbPath = getDBFilePath(runID, chr);
-		Class.forName("org.sqlite.JDBC");
-
-		Connection connection = DriverManager.getConnection("jdbc:sqlite" + ":" + dbPath);
-		Statement statement = connection.createStatement();
+		Connection con = getConnection(runID, chr);
+		Statement statement = con.createStatement();
 		statement.setQueryTimeout(SQLITE_TIMEOUT_SEC); // set timeout.
 		statement.executeUpdate("drop table if exists " + TABLE_NAME);
 		statement.executeUpdate("create table " + TABLE_NAME + " "
@@ -270,7 +272,7 @@ final public class ManageDB {// Util Class
 																							// "chr,"
 		statement.executeUpdate("CREATE UNIQUE INDEX uniqindex on base_data(pos_index,sample_id)");
 
-		connection.close();
+		con.close();
 	}
 
 	boolean dbExists(String runID, Chr chr) {
@@ -284,6 +286,10 @@ final public class ManageDB {// Util Class
 	}
 
 	Connection getConnection(String runID, Chr chr) throws SQLException {
+		if( !dbExists(runID, chr)) {
+			//TODO app-specific Exeptoin may be betther
+			throw new RuntimeException("db file not found;path="+getDBFilePath(runID, chr));
+		}
 		final String dbPath = getDBFilePath(runID, chr);
 		Connection con = DriverManager.getConnection("jdbc:sqlite" + ":" + dbPath);
 		return con;
