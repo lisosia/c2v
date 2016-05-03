@@ -7,6 +7,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import genome.chr.Sex;
+import genome.format.CheckSex;
 
 public class CheckSexTest {
 	

@@ -1,5 +1,6 @@
-package genome;
+package genome.format;
 
+import genome.C2VRuntimeException;
 import genome.chr.Chr;
 
 import java.io.ByteArrayInputStream;

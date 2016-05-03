@@ -1,8 +1,8 @@
 package genome;
 
-import genome.ReferenceReader;
 import genome.chr.Chr;
 import genome.chr.ChrSetFactory;
+import genome.format.ReferenceReader;
 
 public class TestReferenceReader {
 	public static void main(String[] args) throws Exception {

@@ -22,13 +22,16 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import genome.GenomeDataStoreUtil.BaseArrayDeCompressor;
 import genome.GenomeDataStoreUtil.PersonalGenomeDataCompressor;
 import genome.GenomeDataStoreUtil.PersonalGenomeDataDecompressor;
 import genome.GenomeDataStoreUtil.PersonalID;
-import genome.GenomeDataStoreUtil.PositionArrayDeCompressor;
 import genome.chr.Chr;
 import genome.chr.Sex;
+import genome.format.Base;
+import genome.format.CheckSex;
+import genome.format.ConsensusReader;
+import genome.format.ReferenceReader;
+import genome.util.PosArrayDecompressor;
 
 final public class ManageDB {// Util Class
 
@@ -550,8 +553,8 @@ final public class ManageDB {// Util Class
 		int count = 0;
 		while (rs.next()) {
 			count++;
-			PositionArrayDeCompressor pos_buf = new PositionArrayDeCompressor(rs.getBytes("pos_array"));
-			BaseArrayDeCompressor base_buf = new BaseArrayDeCompressor(rs.getBytes("base_array"));
+			PosArrayDecompressor pos_buf = new PosArrayDecompressor(rs.getBytes("pos_array"));
+			Base.BaseArrayDeCompressor base_buf = new Base.BaseArrayDeCompressor(rs.getBytes("base_array"));
 			int[] base_ret = new int[2];
 			int ret_pos;
 			while (base_buf.readNextBaseDiff(base_ret) != -1 && (ret_pos = pos_buf.readNextPos()) != -1) {

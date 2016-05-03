@@ -10,6 +10,7 @@ import org.junit.Test;
 import genome.chr.Chr;
 import genome.chr.ChrSet;
 import genome.chr.ChrSetFactory;
+import genome.format.ReferenceReader;
 
 public class ReferenceReaderTest {
 	
