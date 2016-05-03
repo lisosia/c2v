@@ -5,12 +5,7 @@ import genome.chr.ChrSet;
 import genome.chr.ChrSetFactory;
 
 public class MainStore {
-	/**
-	 * 
-	 * @param args
-	 *            inputConsensusFileName, dbFilterValue,qbFiletrvalue
-	 * @throws Exception
-	 */
+
 	public static void main(String[] args) throws Exception {
 		final String runID, sampleID, consensuFilePath, configFilePath, checkSexFilePath;
 		final Chr chr;

@@ -147,12 +147,13 @@ public class ConsensusReader {
 
 			
 			//TODO 1/0 はあるのか
-			if(genoType.equals(".")){
-				alts_num = 0;
-			}else if(genoType.equals("0/1")){
-				alts_num = 1;
-			}else {
-				alts_num = 2;
+			switch(genoType){
+			case ".":
+				alts_num = 0; break;
+			case "0/1":
+				alts_num = 1; break;
+			default:
+				alts_num = 2; break;
 			}
 			
 			// set altsComparedToRef
@@ -205,16 +206,6 @@ public class ConsensusReader {
 		}
 		
 		public String toString() {
-		/*	public String chr; // X,Yの時はそれぞれ -1,0 とする
-			public int position;
-			public String altsStr;
-			public int[] altsComparedToRef;
-			public float qual;
-			public boolean isIndel;
-			public int dp;
-			public int alts_num;
-			public String genoType;
-			*/
 			StringBuilder sb = new StringBuilder();
 			sb.append("chr;" + chr)
 				.append(" pos:" + position)

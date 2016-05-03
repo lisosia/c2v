@@ -1,4 +1,4 @@
-package genome;
+package genome.format;
 
 import genome.chr.Chr;
 import genome.chr.ChrSet;

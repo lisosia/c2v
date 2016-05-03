@@ -263,7 +263,9 @@ final public class ManageDB {// Util Class
 
 	public void initDB(String runID, Chr chr) throws ClassNotFoundException, SQLException {
 
-		Connection con = getConnection(runID, chr);
+		final String dbPath = getDBFilePath(runID, chr);
+		Connection con = DriverManager.getConnection("jdbc:sqlite" + ":" + dbPath);
+
 		Statement statement = con.createStatement();
 		statement.setQueryTimeout(SQLITE_TIMEOUT_SEC); // set timeout.
 		statement.executeUpdate("drop table if exists " + TABLE_NAME);
@@ -531,20 +533,18 @@ final public class ManageDB {// Util Class
 	/**
 	 * For debug
 	 **/
-	public void printOneSample(String runID, String sampleID, Chr chr_to_print)
+	public void printOneSample(String runID, String sampleID, Chr chr)
 			throws SQLException, ClassNotFoundException, IOException {
-		final String dbPath = DATA_DIR + runID;
+
+		final String dbPath = getDBFilePath(runID, chr);
 		if (!(new File(dbPath)).exists()) {
 			System.err.println("such DB file doues not exist!");
 		}
 		// PersonalID pid = new PersonalID(runID,sampleID);
 
-		String sql = "select * from " + TABLE_NAME + " where sample_id = ?"; // removed
-																				// "chr
-																				// =
-																				// ?
-																				// and"
-		Connection con = getConnection(runID, chr_to_print);
+		String sql = "select * from " + TABLE_NAME + " where sample_id = ?";
+		
+		Connection con = getConnection(runID, chr);
 		PreparedStatement ps = con.prepareStatement(sql);
 		// ps.setInt(1, chr_to_print.getNumForDB() );
 		ps.setString(1, sampleID);
@@ -558,21 +558,19 @@ final public class ManageDB {// Util Class
 			int[] base_ret = new int[2];
 			int ret_pos;
 			while (base_buf.readNextBaseDiff(base_ret) != -1 && (ret_pos = pos_buf.readNextPos()) != -1) {
-				System.out.println("  ------   ");
-				if (!chr_to_print.getStr().equals("Y") && (base_ret[0] != 0 || base_ret[1] != 0)) {
-					System.out.print("!");
+				if (!chr.getStr().equals("Y") && (base_ret[0] != 0 || base_ret[1] != 0)) {
+					System.out.print("! ");
 				}
-				if (chr_to_print.getStr().equals("Y") && (base_ret[1] != 0)) {
-					System.out.print("!");
+				if (chr.getStr().equals("Y") && (base_ret[1] != 0)) {
+					System.out.print("! ");
 				}
-				System.out.println(ret_pos);
-				System.out.println(base_ret[0]);
-				System.out.println(base_ret[1]);
+				
+				System.out.printf("%d:[%d,%d]\n", ret_pos, base_ret[0], base_ret[1]);
 			}
 
 		}
 		if (count == 0) {
-			System.err.println("No record in" + TABLE_NAME + ":chr" + chr_to_print + "" + runID + ":" + sampleID);
+			System.err.println("No record in" + TABLE_NAME + ":chr" + chr + "" + runID + ":" + sampleID);
 		}
 	}
 

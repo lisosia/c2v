@@ -1,4 +1,4 @@
-package genome;
+package genome.chr;
 
 import org.junit.Test;
 import static org.junit.Assert.*;

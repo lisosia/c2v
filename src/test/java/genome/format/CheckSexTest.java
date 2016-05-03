@@ -1,4 +1,4 @@
-package genome;
+package genome.format;
 
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
@@ -14,7 +14,7 @@ public class CheckSexTest {
 	@Test
 	public void testLoad() throws FileNotFoundException, IOException {
 		CheckSex checker = null;
-		String f = getClass().getResource("/genome/check_sex_input_0").getFile();
+		String f = getClass().getResource("/checksex/0").getFile();
 		checker = new CheckSex( f, 0.1);
 
 		assertEquals( checker.getSex("0078"), Sex.Female);
