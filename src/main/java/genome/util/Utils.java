@@ -1,4 +1,4 @@
-package util;
+package genome.util;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
