@@ -1,10 +1,10 @@
 package genome;
 
-import genome.ConsensusReader;
 import genome.chr.Chr;
 import genome.chr.ChrSet;
 import genome.chr.ChrSetFactory;
 import genome.chr.Sex;
+import genome.format.ConsensusReader;
 
 import java.io.IOException;
 

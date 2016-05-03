@@ -1,0 +1,10 @@
+ruby mk_reference.rb
+
+split=10
+start=1
+end=110
+every sequence is [acgtacgtac] (gziped)
+
+chr 1 ~ 24
+24 * 11 entries
+

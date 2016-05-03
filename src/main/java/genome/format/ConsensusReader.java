@@ -1,7 +1,8 @@
-package genome;
+package genome.format;
 
 import genome.chr.Chr;
 import genome.chr.Sex;
+import genome.util.MultiStreamBZip2InputStream;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
