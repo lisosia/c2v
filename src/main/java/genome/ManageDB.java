@@ -2,10 +2,8 @@ package genome;
 
 import static genome.util.Utils.error2StackTrace;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.sql.Connection;
@@ -33,17 +31,11 @@ import genome.format.ConsensusReader;
 import genome.format.ReferenceReader;
 import genome.util.PosArrayDecompressor;
 
-final public class ManageDB {// Util Class
+final public class ManageDB {
 
-	private static final int SQLITE_TIMEOUT_SEC = 100 * 60;
-	final private String DATA_DIR; // = System.getProperty("user.dir") +
-									// "/etc/data/";
-	final private String TABLE_NAME = "base_data";
-	final int DATA_SPLIT_UNIT; // = 100000 * 100; //100k * 100
-	final double minimumQual;
-	final int minimumDP;
-	final String referenceDBPath;
-	final double checkSexRatio;
+	final AppConfig c;
+	static final int SQLITE_TIMEOUT_SEC = 100 * 60;
+	
 	CheckSex checkSex;
 
 	/**
@@ -56,41 +48,12 @@ final public class ManageDB {// Util Class
 	 */
 	public ManageDB(String configFilePath, String checkSexFilePath) throws IOException, FileNotFoundException {
 
-		// Read config file
-		final String CONFIG_FILENAME = configFilePath; // System.getProperty("user.dir")
-														// + "/.config";
-		BufferedReader br = null;
-		try {
-			br = new BufferedReader(new FileReader(CONFIG_FILENAME));
-			String data_dir_tmp = br.readLine();
-			DATA_DIR = data_dir_tmp.endsWith("/") ? data_dir_tmp : data_dir_tmp + "/";
-			DATA_SPLIT_UNIT = Integer.parseInt(br.readLine());
-			minimumQual = Double.parseDouble(br.readLine());
-			minimumDP = Integer.parseInt(br.readLine());
-			referenceDBPath = br.readLine();
-			checkSexRatio = Double.parseDouble(br.readLine());
-			/*
-			 * System.err.println(">>> read configfile: " + CONFIG_FILENAME +
-			 * "\noutputDBfileDir: " + DATA_DIR + "\nDATA_SPLIT_UNIT: " +
-			 * DATA_SPLIT_UNIT + "\n<minimumQV(double), minimumDP(int)>:" + "<"
-			 * + minimumQual + ", " + minimumDP + ">" +
-			 * "\ngenomeReference file path: " + referenceDBPath + "\n");
-			 */
-		} finally {
-			try {
-				if (br != null) {
-					br.close();
-				}
-			} catch (IOException e) {
-				e.printStackTrace();
-				throw new RuntimeException("IOException while closing .configfile", e);
-			}
-		}
+		this.c = new AppConfig(configFilePath);
 
 		if (checkSexFilePath == null) {
 			this.checkSex = null;
 		} else {
-			this.checkSex = new CheckSex(checkSexFilePath, this.checkSexRatio);
+			this.checkSex = new CheckSex(checkSexFilePath, this.c.checkSexRatio);
 		}
 
 	}
@@ -146,7 +109,7 @@ final public class ManageDB {// Util Class
 
 	private void removeDBData(final PersonalID pid, Chr chr) throws SQLException {
 		Connection con = getConnection(pid.getRunID(), chr);
-		PreparedStatement ps = con.prepareStatement("remove * from " + TABLE_NAME + " where sample_id = ?");
+		PreparedStatement ps = con.prepareStatement("remove * from " + c.TABLE_NAME + " where sample_id = ?");
 		ps.setString(1, pid.getSampleName());
 		ps.executeUpdate();
 	}
@@ -159,7 +122,7 @@ final public class ManageDB {// Util Class
 		
 		if (checkDataExistance(con, pid.getRunID(), pid.getSampleName(), chr)) {
 			String msg = String.format("you tried to store already existing data[pid:%s,chr:%s,filename:%s]", pid,chr,filename);
-			msg += String.format("\nCheck sqlite data in %s", new File(DATA_DIR, pid.getRunID() ) );
+			msg += String.format("\nCheck sqlite data in %s", new File(c.DATA_DIR, pid.getRunID() ) );
 			throw new RuntimeException(msg);
 		}
 
@@ -170,11 +133,11 @@ final public class ManageDB {// Util Class
 
 		// int line_ct_per_spilit = 0;
 
-		ConsensusReader.ConsensusLineInfo lineInfo = new ConsensusReader.ConsensusLineInfo(minimumQual, minimumDP);
+		ConsensusReader.ConsensusLineInfo lineInfo = new ConsensusReader.ConsensusLineInfo(c.minimumQual, c.minimumDP);
 		Sex sampleSex = checkSex.getSex(pid.getSampleName());
 		System.err.println(pid.getSampleName() + "is " + sampleSex.name());
 		if (chr.getStr().equals("Y") && sampleSex == Sex.Female) {
-			cmpBuf.StoreDB(TABLE_NAME);
+			cmpBuf.StoreDB(c.TABLE_NAME);
 			System.err.println("stored empty column bacause of <chrY,female>: " + pid.getSampleName());
 			con.close();
 			return;
@@ -186,7 +149,7 @@ final public class ManageDB {// Util Class
 		while (true) {
 			if (consensusReader.readFilteredLine(lineInfo) == false) { // 読み込みここまで
 				// final STORE
-				cmpBuf.StoreDB(TABLE_NAME);
+				cmpBuf.StoreDB(c.TABLE_NAME);
 				System.err.println("store finished");
 				break;
 			}
@@ -207,10 +170,10 @@ final public class ManageDB {// Util Class
 			 * (n+1)*DATA_SPLIT_UNIT が分割領域 具体的には
 			 * 1-10000000,10000001-20000000,... (positionは1から始まることに注意)
 			 */
-			if (lineInfo.position > pos_index_forDB + DATA_SPLIT_UNIT) {
+			if (lineInfo.position > pos_index_forDB + c.DATA_SPLIT_UNIT) {
 				// line_ct_per_spilit = 0;
 				// STORING
-				cmpBuf.StoreDB(TABLE_NAME);
+				cmpBuf.StoreDB(c.TABLE_NAME);
 				// after store, should reset buffers, and update pos_index
 				isFirst = true;
 				// 一気に DATA_SPLIT_UNIT以上
@@ -218,11 +181,11 @@ final public class ManageDB {// Util Class
 				// もし歯抜けときは、空の（＝ compBuf.write をしていない） record を書き込む（resetBuffer
 				// -> Storeの流れ）
 				boolean isFirstLoop = true;
-				while (lineInfo.position > pos_index_forDB + DATA_SPLIT_UNIT) {
+				while (lineInfo.position > pos_index_forDB + c.DATA_SPLIT_UNIT) {
 					if (!isFirstLoop) {
-						cmpBuf.StoreDB(TABLE_NAME);
+						cmpBuf.StoreDB(c.TABLE_NAME);
 					}
-					pos_index_forDB += DATA_SPLIT_UNIT;
+					pos_index_forDB += c.DATA_SPLIT_UNIT;
 					cmpBuf.resetBuffer(pos_index_forDB);
 					isFirstLoop = false;
 				}
@@ -267,9 +230,9 @@ final public class ManageDB {// Util Class
 		Connection con = DriverManager.getConnection("jdbc:sqlite" + ":" + dbPath);
 
 		Statement statement = con.createStatement();
-		statement.setQueryTimeout(SQLITE_TIMEOUT_SEC); // set timeout.
-		statement.executeUpdate("drop table if exists " + TABLE_NAME);
-		statement.executeUpdate("create table " + TABLE_NAME + " "
+		statement.setQueryTimeout(c.SQLITE_TIMEOUT_SEC); // set timeout.
+		statement.executeUpdate("drop table if exists " + c.TABLE_NAME);
+		statement.executeUpdate("create table " + c.TABLE_NAME + " "
 		// "(chr integer NOT NULL ," + chrごとで、ファイルで分割することに
 				+ "(pos_index integer NOT NULL ," + "sample_id TEXT NOT NULL ," + "pos_array blob NOT NULL ,"
 				+ "base_array blob NOT NULL ," + "primary key(sample_id, pos_index) )"); // removed
@@ -281,15 +244,15 @@ final public class ManageDB {// Util Class
 
 	boolean dbExists(String runID, Chr chr) {
 		final String dbPath = getDBFilePath(runID, chr);
-		boolean ret = new File(dbPath).exists();
+		boolean ret = new File(dbPath).isFile();
 		return ret;
 	}
 
 	String getDBFilePath(String runID, Chr chr) {
-		return DATA_DIR + runID + ".chr" + chr.getStr();
+		return c.DATA_DIR + runID + ".chr" + chr.getStr();
 	}
 
-	Connection getConnection(String runID, Chr chr) throws SQLException {
+	public Connection getConnection(String runID, Chr chr) throws SQLException {
 		if( !dbExists(runID, chr)) {
 			//TODO app-specific Exeptoin may be betther
 			throw new RuntimeException("db file not found;path="+getDBFilePath(runID, chr));
@@ -319,7 +282,7 @@ final public class ManageDB {// Util Class
 	 */
 	private SortedSet<Integer> getExistingPosIndex(Chr chr, Set<String> runIDs)
 			throws ClassNotFoundException, SQLException {
-		String get_pos_indexs = "select distinct pos_index from " + TABLE_NAME;
+		String get_pos_indexs = "select distinct pos_index from " + c.TABLE_NAME;
 		SortedSet<Integer> ret = new TreeSet<Integer>();
 		for (String runID : runIDs) {
 			if (!dbExists(runID, chr)) {
@@ -352,7 +315,7 @@ final public class ManageDB {// Util Class
 			int[] merged = getMergedData(chr, id, pos);
 			// String chr_str = (chr==23)? "X" : (chr==24) ? "Y" :
 			// String.valueOf(chr);
-			new PrintData(chr, referenceDBPath, printNotAlts).printMergedData(merged, pos, out);
+			new PrintData(chr, c.referenceDBPath.getAbsolutePath(), printNotAlts).printMergedData(merged, pos, out);
 		}
 	}
 
@@ -362,7 +325,7 @@ final public class ManageDB {// Util Class
 	 */
 	int[] getMergedData(Chr chr, Map<String, ArrayList<String>> id, int pos_index)
 			throws IOException, SQLException, ClassNotFoundException {
-		int[] ret = new int[MergeArrayFormat.SIZE_PER_BASE * (DATA_SPLIT_UNIT + 1)];
+		int[] ret = new int[MergeArrayFormat.SIZE_PER_BASE * (c.DATA_SPLIT_UNIT + 1)];
 		for (String runID : id.keySet()) {
 			int[] mergedByRunID = getMergedDataByRunID(chr, runID, id.get(runID), pos_index);
 			assert (ret.length == mergedByRunID.length);
@@ -382,7 +345,7 @@ final public class ManageDB {// Util Class
 		if (!dbExists(runID, chr)) {
 			throw new IllegalArgumentException("DB does not exist. runID,chr:" + runID + "," + chr);
 		}
-		StringBuilder sb = new StringBuilder("select * from " + TABLE_NAME + " where pos_index = ? and sample_id in (");
+		StringBuilder sb = new StringBuilder("select * from " + c.TABLE_NAME + " where pos_index = ? and sample_id in (");
 
 		boolean isFirst = true;
 		Connection con = getConnection(runID, chr);
@@ -414,7 +377,7 @@ final public class ManageDB {// Util Class
 			gotData.put(id, false);
 		}
 
-		int[] ret = new int[MergeArrayFormat.SIZE_PER_BASE * (DATA_SPLIT_UNIT + 1)]; // AA,AC,...,TT,
+		int[] ret = new int[MergeArrayFormat.SIZE_PER_BASE * (c.DATA_SPLIT_UNIT + 1)]; // AA,AC,...,TT,
 																						// _A,_B,_C,_T,
 																						// isALT
 		int gotIdNum = 0;
@@ -510,20 +473,20 @@ final public class ManageDB {// Util Class
 	 * @throws SQLException
 	 */
 	boolean checkDataExistance(Connection con, String runID, String sampleID) throws SQLException {
-		String sql = "select * from " + TABLE_NAME + " where sample_id = ?";
+		String sql = "select * from " + c.TABLE_NAME + " where sample_id = ?";
 		// Connection con = getConnection(runID);
 		PreparedStatement ps = con.prepareStatement(sql);
-		ps.setQueryTimeout(SQLITE_TIMEOUT_SEC);
+		ps.setQueryTimeout(c.SQLITE_TIMEOUT_SEC);
 		ps.setString(1, sampleID);
 		ResultSet rs = ps.executeQuery();
 		return rs.next();
 	}
 
 	boolean checkDataExistance(Connection con, String runID, String sampleID, Chr chr) throws SQLException {
-		String sql = "select * from " + TABLE_NAME + " where sample_id = ? ";
+		String sql = "select * from " + c.TABLE_NAME + " where sample_id = ? ";
 		// Connection con = getConnection(runID);
 		PreparedStatement ps = con.prepareStatement(sql);
-		ps.setQueryTimeout(SQLITE_TIMEOUT_SEC);
+		ps.setQueryTimeout(c.SQLITE_TIMEOUT_SEC);
 		// ps.setInt(1, chr.getNumForDB() );
 		ps.setString(1, sampleID);
 		ResultSet rs = ps.executeQuery();
@@ -542,7 +505,7 @@ final public class ManageDB {// Util Class
 		}
 		// PersonalID pid = new PersonalID(runID,sampleID);
 
-		String sql = "select * from " + TABLE_NAME + " where sample_id = ?";
+		String sql = "select * from " + c.TABLE_NAME + " where sample_id = ?";
 		
 		Connection con = getConnection(runID, chr);
 		PreparedStatement ps = con.prepareStatement(sql);
@@ -570,7 +533,7 @@ final public class ManageDB {// Util Class
 
 		}
 		if (count == 0) {
-			System.err.println("No record in" + TABLE_NAME + ":chr" + chr + "" + runID + ":" + sampleID);
+			System.err.println("No record in" + c.TABLE_NAME + ":chr" + chr + "" + runID + ":" + sampleID);
 		}
 	}
 
