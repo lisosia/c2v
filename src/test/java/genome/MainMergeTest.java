@@ -27,10 +27,10 @@ public class MainMergeTest {
 		System.out.println("print SNP");
 		long t0 = System.nanoTime();
 		String config = getClass().getResource("/config/config.0").getFile();
-		Merge mdb = new Merge(config, null);
-		mdb.printDiffByChr(chr, id, System.out, false);
+		Merge m = new Merge(config, null);
+		m.printDiffByChr(chr, id, System.out, false);
 		long t1 = System.nanoTime();
-		System.out.println((t1 - t0) / (1_000_000_000.0) + "sec to merge");
+		System.err.println((t1 - t0) / (1_000_000_000.0) + "sec to merge");
 
 	}
 }
