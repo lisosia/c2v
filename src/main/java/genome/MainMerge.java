@@ -1,22 +1,19 @@
 package genome;
 
-import genome.chr.Chr;
-import genome.chr.ChrSet;
-import genome.chr.ChrSetFactory;
-
-import java.io.IOException;
 import java.io.InputStream;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Scanner;
 
+import genome.chr.Chr;
+import genome.chr.ChrSet;
+import genome.chr.ChrSetFactory;
+
 public class MainMerge {
 
-	public static void main(String[] args) throws ClassNotFoundException,
-			SQLException, IOException {
+	public static void main(String[] args) throws Exception {
 
 		final String configFilePath, checkSexFilePath;
 		final String chrStr;
@@ -38,18 +35,19 @@ public class MainMerge {
 
 		Map<String, ArrayList<String>> id = createList(System.in);
 
-		ManageDB mdb = new ManageDB(configFilePath, checkSexFilePath);
+		Merge m = new Merge(configFilePath, checkSexFilePath);
+//		ManageDB mdb = new ManageDB(configFilePath, checkSexFilePath);
 		if (chrStr.equals("all") ) {
 			for (Chr c : humanChrSet.getNormalChrs() ) {
-				mdb.printDiffByChr(c, id, System.out,printNotAlts);				
+				m.printDiffByChr(c, id, System.out,printNotAlts);				
 			}
 			for (Chr c : humanChrSet.getSexChrs() ) {
-				mdb.printDiffByChr(c, id, System.out,printNotAlts);				
+				m.printDiffByChr(c, id, System.out,printNotAlts);				
 			}
 
 		} else {
 			Chr chr = humanChrSet.getChr( args[0] );			
-			mdb.printDiffByChr(chr, id, System.out,printNotAlts);
+			m.printDiffByChr(chr, id, System.out,printNotAlts);
 		}
 
 	}

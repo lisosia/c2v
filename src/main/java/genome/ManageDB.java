@@ -1,7 +1,5 @@
 package genome;
 
-import static genome.util.Utils.error2StackTrace;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -12,31 +10,21 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import genome.GenomeDataStoreUtil.PersonalGenomeDataCompressor;
-import genome.GenomeDataStoreUtil.PersonalGenomeDataDecompressor;
 import genome.GenomeDataStoreUtil.PersonalID;
 import genome.chr.Chr;
-import genome.chr.Sex;
 import genome.format.Base;
 import genome.format.CheckSex;
-import genome.format.ConsensusReader;
 import genome.format.ReferenceReader;
 import genome.util.PosArrayDecompressor;
 
 final public class ManageDB {
 
 	final AppConfig c;
-	static final int SQLITE_TIMEOUT_SEC = 100 * 60;
-	
-	CheckSex checkSex;
+	final CheckSex checkSex;
 
 	/**
 	 * 
@@ -67,161 +55,11 @@ final public class ManageDB {
 	 * cause OutOfMemoryError )
 	 */
 
-	public void store(String runID, String sampleID, final Chr chr, String filename) {
-		if (dbExists(runID, chr)) {
-			// System.err.println("database already exists, start storing");
-		} else {
-			System.err.println("database not exist. start creating db.");
-			try {
-				initDB(runID, chr);
-			} catch (ClassNotFoundException | SQLException e) {
-				throw new RuntimeException("error while initting db", e);
-			}
-		}
-
-		System.err.printf("Storing...[runId:%s,sampleId:%s,chr:%s]", runID, sampleID, chr);
-
-		long t0 = System.nanoTime();
-		final PersonalID pid = new PersonalID(runID, sampleID);
-		try {
-			parseAndStoreDB(pid, chr, filename);
-		} catch (SQLException | IOException | ClassNotFoundException e) {
-			System.err.printf("error while storing runID:%s,sampleID:%s,chr:%s,filename:%s", runID, sampleID, chr,
-					filename);
-			System.err.printf("printStacktrace:\n%s", error2StackTrace(e));
-
-			try {
-				removeDBData(pid, chr);
-				System.err.println("Removed the data");
-			} catch (SQLException e2) {
-				System.err.println(" Failed to removed the data");
-				//TODO more detailed info, by onbject<runid,sampleid,chr,filename>
-				throw new RuntimeException("store failed ", e2);
-			}
-			//TODO more detailed info, by onbject<runid,sampleid,chr,filename>
-			throw new RuntimeException("store failed, remove the entry <<OBJ>>>", e);
-		}
-		long t1 = System.nanoTime();
-		System.err.println("Store fin, " + (t1 - t0) / (1_000_000_000 + 0.0) + " sec passed. " + runID + ","
-				+ sampleID + "," + chr);
-
-	}
-
-	private void removeDBData(final PersonalID pid, Chr chr) throws SQLException {
+	void removeDBData(final PersonalID pid, Chr chr) throws SQLException {
 		Connection con = getConnection(pid.getRunID(), chr);
 		PreparedStatement ps = con.prepareStatement("remove * from " + c.TABLE_NAME + " where sample_id = ?");
 		ps.setString(1, pid.getSampleName());
 		ps.executeUpdate();
-	}
-
-	private void parseAndStoreDB(PersonalID pid, final Chr chr, String filename)
-			throws SQLException, ClassNotFoundException, IOException {
-		// TODO primary制約にひっかかってエラーが出たら、それをキャッチしてクライアントに伝える
-
-		Connection con = getConnection(pid.getRunID(), chr);
-		
-		if (checkDataExistance(con, pid.getRunID(), pid.getSampleName(), chr)) {
-			String msg = String.format("you tried to store already existing data[pid:%s,chr:%s,filename:%s]", pid,chr,filename);
-			msg += String.format("\nCheck sqlite data in %s", new File(c.DATA_DIR, pid.getRunID() ) );
-			throw new RuntimeException(msg);
-		}
-
-		int pos_index_forDB = 0;
-		PersonalGenomeDataCompressor cmpBuf = new PersonalGenomeDataCompressor(pid, con, chr, pos_index_forDB);
-
-		boolean isFirst = true;
-
-		// int line_ct_per_spilit = 0;
-
-		ConsensusReader.ConsensusLineInfo lineInfo = new ConsensusReader.ConsensusLineInfo(c.minimumQual, c.minimumDP);
-		Sex sampleSex = checkSex.getSex(pid.getSampleName());
-		System.err.println(pid.getSampleName() + "is " + sampleSex.name());
-		if (chr.getStr().equals("Y") && sampleSex == Sex.Female) {
-			cmpBuf.StoreDB(c.TABLE_NAME);
-			System.err.println("stored empty column bacause of <chrY,female>: " + pid.getSampleName());
-			con.close();
-			return;
-		} // DO nothing
-		ConsensusReader consensusReader = new ConsensusReader(filename, sampleSex, chr);
-
-		int store_counter1 = 0;
-		int store_counter2 = 0;
-		while (true) {
-			if (consensusReader.readFilteredLine(lineInfo) == false) { // 読み込みここまで
-				// final STORE
-				cmpBuf.StoreDB(c.TABLE_NAME);
-				System.err.println("store finished");
-				break;
-			}
-			// System.out.print(lineInfo);
-
-			if (!lineInfo.chr.equals(chr.getStr())) {
-				throw new IllegalArgumentException("与えられた chr: " + chr.getStr() + " と 入力<filename:" + filename
-						+ " の中身> が一致しません\n" + "consensusfile:chr:" + lineInfo.chr);
-			}
-
-			if (isFirst) {
-				isFirst = false;
-			}
-
-			/*
-			 * data spilit (n+1) * DATA_SPLIT_UNIT < (parseしたposition)
-			 * のときは、StoreDB そののちにWRITEしている。 よって n*DATA_SPLIT_UNIT < pos =<
-			 * (n+1)*DATA_SPLIT_UNIT が分割領域 具体的には
-			 * 1-10000000,10000001-20000000,... (positionは1から始まることに注意)
-			 */
-			if (lineInfo.position > pos_index_forDB + c.DATA_SPLIT_UNIT) {
-				// line_ct_per_spilit = 0;
-				// STORING
-				cmpBuf.StoreDB(c.TABLE_NAME);
-				// after store, should reset buffers, and update pos_index
-				isFirst = true;
-				// 一気に DATA_SPLIT_UNIT以上
-				// consensusfileのpositionが"歯抜け"の時もありうるのでこのような処理
-				// もし歯抜けときは、空の（＝ compBuf.write をしていない） record を書き込む（resetBuffer
-				// -> Storeの流れ）
-				boolean isFirstLoop = true;
-				while (lineInfo.position > pos_index_forDB + c.DATA_SPLIT_UNIT) {
-					if (!isFirstLoop) {
-						cmpBuf.StoreDB(c.TABLE_NAME);
-					}
-					pos_index_forDB += c.DATA_SPLIT_UNIT;
-					cmpBuf.resetBuffer(pos_index_forDB);
-					isFirstLoop = false;
-				}
-			}
-
-			// line_ct_per_spilit++;
-			// WRITE
-			// TODO
-			if (lineInfo.altsStr.length() != 1 && lineInfo.altsStr.length() != 3) {
-				continue;
-			}
-			if (!chr.isSexChr() || sampleSex == Sex.Female
-					|| chr.getStr().equals("X") && ConsensusReader.isPAR_X(lineInfo.position)
-			// ACGT １つだが、Yの文も含めて２つ分数える
-			) {
-				cmpBuf.writeData(lineInfo.position, lineInfo.altsComparedToRef[0], lineInfo.altsComparedToRef[1]);
-				store_counter2 += 1;
-				/*
-				 * System.out.println(" "+(!chr.isSexChr() ) +" "+ (sampleSex ==
-				 * Sex.Female) +" "+ (chr.getStr().equals("X") &&
-				 * ConsensusReader.isPAR_X(lineInfo.position) ) );
-				 */
-			} else if (!(chr.getStr().equals("Y") && ConsensusReader.isPAR_Y(lineInfo.position)) && // つまり男性,XY,非PAR
-					!lineInfo.genoType.equals("0/1")) { // 0/1のときはmisscall,
-														// readFilteredLineしてるのでこの行入らないけど一応
-				// 0b1111 はMerge時に無視される
-				cmpBuf.writeData(lineInfo.position, 0b1111, lineInfo.altsComparedToRef[0]);
-				store_counter1 += 1;
-			} else { // 染色体Yで(Maleで)PARのときは何もしない.
-				// System.out.println("Do nothing");
-			}
-
-		}
-		System.err.println("stored column[1,2]:" + store_counter1 + " " + store_counter2);
-		con.close();
-
 	}
 
 	public void initDB(String runID, Chr chr) throws ClassNotFoundException, SQLException {
@@ -262,25 +100,13 @@ final public class ManageDB {
 		return con;
 	}
 
-	@SuppressWarnings("unused")
-	private void storeDB(PreparedStatement ps, String sample_id, int chr, int pos_index, byte[] pos_array,
-			byte[] base_array) throws SQLException {
-		ps.setQueryTimeout(SQLITE_TIMEOUT_SEC);
-		// ps.setInt(1, chr);
-		ps.setInt(1, pos_index);
-		ps.setString(2, sample_id);
-		ps.setBytes(3, pos_array);
-		ps.setBytes(4, base_array);
-		ps.executeUpdate();
-	}
-
 	/*
 	 * ↑ store ↓ print, Merge
 	 */
 	/**
 	 * 動作遅いかもしれない
 	 */
-	private SortedSet<Integer> getExistingPosIndex(Chr chr, Set<String> runIDs)
+	SortedSet<Integer> getExistingPosIndex(Chr chr, Set<String> runIDs)
 			throws ClassNotFoundException, SQLException {
 		String get_pos_indexs = "select distinct pos_index from " + c.TABLE_NAME;
 		SortedSet<Integer> ret = new TreeSet<Integer>();
@@ -294,7 +120,7 @@ final public class ManageDB {
 			// sqliteConfig#setReadOnly
 			// and SQLiteConfig.createConnection().
 			PreparedStatement ps = con.prepareStatement(get_pos_indexs);
-			ps.setQueryTimeout(SQLITE_TIMEOUT_SEC);
+			ps.setQueryTimeout(c.SQLITE_TIMEOUT_SEC);
 			// ps.setInt(1, chr.getNumForDB() ); REMOVED
 			ResultSet rs = ps.executeQuery();
 			while (rs.next()) {
@@ -305,160 +131,6 @@ final public class ManageDB {
 			throw new IllegalArgumentException(
 					"runIDs(chr=" + chr + ") has no record! check DB file. " + "terminate this process");
 		}
-		return ret;
-	}
-
-	public void printDiffByChr(Chr chr, Map<String, ArrayList<String>> id, PrintStream out, final boolean printNotAlts)
-			throws ClassNotFoundException, SQLException, IOException {
-
-		for (int pos : getExistingPosIndex(chr, id.keySet())) {
-			int[] merged = getMergedData(chr, id, pos);
-			// String chr_str = (chr==23)? "X" : (chr==24) ? "Y" :
-			// String.valueOf(chr);
-			new PrintData(chr, c.referenceDBPath.getAbsolutePath(), printNotAlts).printMergedData(merged, pos, out);
-		}
-	}
-
-	/**
-	 * @param id
-	 *            Map<runID, ArrayList of sampleIDs> mergeするData特定用
-	 */
-	int[] getMergedData(Chr chr, Map<String, ArrayList<String>> id, int pos_index)
-			throws IOException, SQLException, ClassNotFoundException {
-		int[] ret = new int[MergeArrayFormat.SIZE_PER_BASE * (c.DATA_SPLIT_UNIT + 1)];
-		for (String runID : id.keySet()) {
-			int[] mergedByRunID = getMergedDataByRunID(chr, runID, id.get(runID), pos_index);
-			assert (ret.length == mergedByRunID.length);
-			for (int i = 0; i < mergedByRunID.length; i++) {
-				ret[i] += mergedByRunID[i];
-			}
-			mergedByRunID = null; // GCを期待
-		}
-		return ret;
-	}
-
-	int[] getMergedDataByRunID(Chr chr, String runID, List<String> sampleIDs, int pos_index)
-			throws SQLException, ClassNotFoundException, IOException {
-		if (sampleIDs.size() == 0) {
-			throw new IllegalArgumentException("sampleIDs[of " + runID + "] 's size == 0");
-		}
-		if (!dbExists(runID, chr)) {
-			throw new IllegalArgumentException("DB does not exist. runID,chr:" + runID + "," + chr);
-		}
-		StringBuilder sb = new StringBuilder("select * from " + c.TABLE_NAME + " where pos_index = ? and sample_id in (");
-
-		boolean isFirst = true;
-		Connection con = getConnection(runID, chr);
-		// con.setReadOnly(true);
-
-		for (String id : sampleIDs) {
-			if (!checkDataExistance(con, runID, id, chr)) {
-				throw new Error("[runID,sampleID,chr]:[" + runID + "," + id + "," + chr
-						+ "] does not exist! terminate process.");
-			}
-			if (isFirst) {
-				sb.append("'").append(id).append("'");
-			} else {
-				sb.append(",").append("'").append(id).append("'");
-			}
-			isFirst = false;
-		}
-		sb.append(")");
-		final String sql = sb.toString();
-		PreparedStatement ps = con.prepareStatement(sql);
-		ps.setQueryTimeout(SQLITE_TIMEOUT_SEC);
-		// ps.setInt(1, chr.getNumForDB() ); REMOVED
-		ps.setInt(1, pos_index);
-		ResultSet rs = ps.executeQuery();
-
-		// for validation
-		HashMap<String, Boolean> gotData = new HashMap<String, Boolean>();
-		for (String id : sampleIDs) {
-			gotData.put(id, false);
-		}
-
-		int[] ret = new int[MergeArrayFormat.SIZE_PER_BASE * (c.DATA_SPLIT_UNIT + 1)]; // AA,AC,...,TT,
-																						// _A,_B,_C,_T,
-																						// isALT
-		int gotIdNum = 0;
-		while (rs.next()) {
-			gotIdNum += 1;
-			final String gotID = rs.getString("sample_id");
-			assert gotData.containsKey(gotID);
-			gotData.put(gotID, true);
-
-			System.err.println("merging   sample_id:" + gotID + " pos_index:" + String.valueOf(pos_index));
-			PersonalGenomeDataDecompressor d = new PersonalGenomeDataDecompressor(rs.getBytes("pos_array"),
-					rs.getBytes("base_array"));
-			int[] data = new int[3];
-
-			while (d.readNext(data) != -1) {
-				final int base1 = data[0];
-				final int base2 = data[1];
-				if (base2 == 0b1111) { // base2は0b11にならない
-					System.err.println(" " + base1 + " " + base2 + " " + data[2]);
-					throw new IllegalArgumentException("base is 0b1111. internal error");
-				}
-				final int posRead = data[2];
-				try {
-					final int BASE_DX = MergeArrayFormat.SIZE_PER_BASE * (posRead - pos_index);
-					if ((base1 != 0 && base1 != 0b1111) || base2 != 0) {
-						ret[BASE_DX + MergeArrayFormat.IS_ALT_DX] = 1;// flag
-																		// for
-																		// !=ref
-					}
-					if (base1 != 0b1111) {
-						ret[BASE_DX + MergeArrayFormat.getSubIndex(base1, base2)] += 1;
-						ret[BASE_DX + MergeArrayFormat.TOTAL_AN_DX] += 2;
-					} else {
-						ret[BASE_DX + MergeArrayFormat.getSubIndex(base1, base2)] += 1; // same
-						ret[BASE_DX + MergeArrayFormat.TOTAL_AN_DX] += 1;
-					}
-
-				} catch (ArrayIndexOutOfBoundsException e) {
-					System.err.println(
-							"pos_index,posread,base1,base2:" + pos_index + "," + posRead + "," + base1 + "," + base2);
-					throw new RuntimeException("array index outofBounds", e);
-				}
-			}
-
-		}
-
-		// Yのときは数が合わなくても、スルーしてしまう
-		// !chr.getStr().equals("Y") のとき、大量にMegが出力されるはず、、、どうしようか。
-		if (gotData.containsValue(false)) {
-			final String preMsg = "missing DB Data ::\n" + "chr:" + chr + ",runID:" + runID + ",position(index):"
-					+ pos_index + "\n" + "missing sample_id(s):";
-			if (!chr.getStr().equals("Y")) {
-				String Msg = "";
-				for (Map.Entry<String, Boolean> e : gotData.entrySet()) {
-					if (e.getValue() == false) {
-						Msg += (e.getKey() + ",");
-					}
-				}
-				System.err.println(preMsg + Msg);
-				// throw new IllegalArgumentException("Warning:
-				// DBファイル内に,要求されたすべてのサンプルIDが含まれていません");
-
-			} else { // when chrY
-				String Msg = "";
-				for (Map.Entry<String, Boolean> e : gotData.entrySet()) {
-					if (checkSex.getSex(e.getKey()) == Sex.Female) {
-						continue;
-					} // Femaleのときは関係なし
-					if (e.getValue() == false) {
-						Msg += (e.getKey() + ",");
-					}
-				}
-				if (!Msg.equals("")) {
-					System.err.println(preMsg + Msg);
-				}
-
-			}
-
-		}
-
-		con.close();
 		return ret;
 	}
 

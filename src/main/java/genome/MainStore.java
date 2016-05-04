@@ -21,9 +21,10 @@ public class MainStore {
 			configFilePath = args[4];
 			checkSexFilePath = args[5];
 		}
-		ManageDB mdb = new ManageDB(configFilePath, checkSexFilePath);
+		
+		final Store s = new Store(configFilePath, checkSexFilePath);
 		try {
-			mdb.store(runID, sampleID, chr, consensuFilePath);
+			s.store(runID, sampleID, chr, consensuFilePath);
 		} finally {
 
 		}

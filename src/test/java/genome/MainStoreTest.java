@@ -2,7 +2,6 @@ package genome;
 
 import org.junit.Test;
 
-import genome.ManageDB;
 import genome.chr.Chr;
 import genome.chr.ChrSet;
 import genome.chr.ChrSetFactory;
@@ -20,9 +19,10 @@ public class MainStoreTest {
 		String configPath = getClass().getResource("/config/config.0").getFile();
 		String checkSexPath = getClass().getResource("/checksex/0").getFile();
 
-		ManageDB mdb = new ManageDB(configPath, checkSexPath);
-		mdb.store(runID, sampleID, chr, filename);
+		Store s = new Store(configPath, checkSexPath);
+		s.store(runID, sampleID, chr, filename);
 
+		ManageDB mdb = new ManageDB(configPath, checkSexPath);
 		mdb.printOneSample(runID, sampleID, chr);
 
 	}

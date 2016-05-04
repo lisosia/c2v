@@ -27,7 +27,7 @@ public class MainMergeTest {
 		System.out.println("print SNP");
 		long t0 = System.nanoTime();
 		String config = getClass().getResource("/config/config.0").getFile();
-		ManageDB mdb = new ManageDB(config, null);
+		Merge mdb = new Merge(config, null);
 		mdb.printDiffByChr(chr, id, System.out, false);
 		long t1 = System.nanoTime();
 		System.out.println((t1 - t0) / (1_000_000_000.0) + "sec to merge");
