@@ -233,7 +233,7 @@ class PrintData {
 			int absolutePos;
 			final String[] ACGT = { "A", "C", "G", "T" };
 
-			if (printNotAlts && merged[base_dx + MergeArrayFormat.TOTAL_AN_DX] == 0) {
+			if (merged[base_dx + MergeArrayFormat.TOTAL_AN_DX] == 0) {
 				continue;
 			}
 			if (!printNotAlts && merged[base_dx + MergeArrayFormat.IS_ALT_DX] == 0) {

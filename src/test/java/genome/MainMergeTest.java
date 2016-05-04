@@ -28,7 +28,7 @@ public class MainMergeTest {
 		long t0 = System.nanoTime();
 		String config = getClass().getResource("/config/config.0").getFile();
 		Merge m = new Merge(config, null);
-		m.printDiffByChr(chr, id, System.out, false);
+		m.printDiffByChr(chr, id, System.out, true);
 		long t1 = System.nanoTime();
 		System.err.println((t1 - t0) / (1_000_000_000.0) + "sec to merge");
 
